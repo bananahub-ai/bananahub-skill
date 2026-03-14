@@ -191,18 +191,23 @@ Analyze user input and match the most appropriate enhancement Profile:
 
 | Profile | Signal keywords |
 |---------|----------------|
-| `photo` | 照片、写实、人像、风景、街拍、产品图、摄影、真实感 |
-| `illustration` | 插画、漫画、动漫、卡通、手绘、像素画、水彩画、油画 |
+| `photo` | 照片、写实、人像、风景、风光、街拍、摄影、真实感 |
+| `illustration` | 插画、漫画、动漫、卡通、手绘、像素画、水彩画、油画、同人、国风 |
 | `diagram` | 图表、流程图、架构图、信息图、示意图 |
-| `text-heavy` | Logo、海报、名片、菜单、标牌、封面、横幅 |
-| `minimal` | 极简、留白、壁纸、背景图、纯色、简约 |
+| `text-heavy` | Logo、海报、名片、菜单、标牌、封面、横幅、邀请函、贺卡 |
+| `minimal` | 极简、留白、壁纸、纯色、简约 |
+| `sticker` | 表情包、贴纸、meme、梗图、emoji、sticker |
+| `3d` | 3D、渲染、建模、等距、isometric、建筑效果图、室内设计 |
+| `product` | 产品图、商品、电商、淘宝、主图、白底图 |
+| `concept-art` | 概念设计、原画、角色设计、游戏角色、splash art |
 | `general` | No clear match to the above categories |
 
 **Recognition logic**:
 1. Scan user input for keywords → direct match
-2. No keyword hit → infer from semantic context (person + scene → photo, art style mentioned → illustration)
-3. Still uncertain → fall back to `general`
-4. **Principle: prefer falling back to general (less optimization) over guessing wrong and distorting intent**
+2. If multiple profiles match → apply conflict disambiguation rules from `references/prompt-guide.md`
+3. No keyword hit → infer from semantic context (person + scene → photo, art style mentioned → illustration)
+4. Still uncertain → fall back to `general`
+5. **Principle: prefer falling back to general (less optimization) over guessing wrong and distorting intent**
 
 ### Phase 3: Enhancement (on-demand, lazy-loaded)
 
