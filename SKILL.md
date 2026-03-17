@@ -45,7 +45,7 @@ Route user input to the appropriate action based on arguments:
 | `edit <描述> --input <图片路径>` | Edit an existing image: optimize prompt → call edit subcommand |
 | `optimize <描述>` | Optimize prompt only; display result without generating image |
 | `generate <English prompt>` | Generate image directly with given English prompt (skip optimization) |
-| `models` | Run `python3 scripts/nanobanana.py models` to list available models |
+| `models` | Run `python3 scripts/nanobanana.py models` to query image-capable models from API (falls back to built-in list on failure) |
 
 Optional flags (append to any generation command):
 - `--model <model_id>` — specify model

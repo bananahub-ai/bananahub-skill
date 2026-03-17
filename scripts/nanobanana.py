@@ -236,13 +236,60 @@ def cmd_init(args):
         sys.exit(1)
 
 
+IMAGE_KEYWORDS = {"image", "imagen"}
+DEFAULT_MODEL = "gemini-3-pro-image-preview"
+
+FALLBACK_MODELS = [
+    {"id": "gemini-3-pro-image-preview", "display_name": "Gemini 3 Pro Image Preview", "default": True},
+    {"id": "gemini-2.0-flash-preview-image-generation", "display_name": "Gemini 2.0 Flash Image Generation", "default": False},
+]
+
+
 def cmd_models(args):
-    """List available image generation models."""
-    models = [
-        {"id": "gemini-3-pro-image-preview", "name": "Nano Banana Pro", "default": True},
-        {"id": "gemini-2.0-flash-preview-image-generation", "name": "Nano Banana Flash", "default": False},
-    ]
-    print(json.dumps({"status": "ok", "models": models}, ensure_ascii=False))
+    """List available image generation models from the API, with fallback."""
+    config = load_config(getattr(args, "config", None))
+    try:
+        client = get_client(config)
+        api_models = []
+        for m in client.models.list(config={"page_size": 100}):
+            name = m.name or ""
+            # Strip "models/" prefix if present
+            model_id = name.removeprefix("models/")
+            desc = (m.description or "").lower()
+            model_id_lower = model_id.lower()
+            display = m.display_name or model_id
+
+            # Filter: model id or description mentions image-related keywords
+            is_image = any(kw in model_id_lower for kw in IMAGE_KEYWORDS) or any(kw in desc for kw in IMAGE_KEYWORDS)
+            if not is_image:
+                continue
+
+            api_models.append({
+                "id": model_id,
+                "display_name": display,
+                "description": (m.description or "")[:120],
+                "input_token_limit": getattr(m, "input_token_limit", None),
+                "output_token_limit": getattr(m, "output_token_limit", None),
+                "default": model_id == DEFAULT_MODEL,
+            })
+
+        if api_models:
+            # Sort: default model first, then alphabetically
+            api_models.sort(key=lambda x: (not x["default"], x["id"]))
+            print(json.dumps({"status": "ok", "source": "api", "models": api_models}, ensure_ascii=False))
+            return
+
+        # API returned no image models — use fallback
+        print(json.dumps({"status": "ok", "source": "fallback", "models": FALLBACK_MODELS}, ensure_ascii=False))
+
+    except Exception as e:
+        # API call failed — use fallback
+        print(json.dumps({
+            "status": "ok",
+            "source": "fallback",
+            "warning": f"API query failed: {str(e)[:150]}",
+            "models": FALLBACK_MODELS,
+        }, ensure_ascii=False))
 
 
 def cmd_edit(args):
