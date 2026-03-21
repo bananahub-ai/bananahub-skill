@@ -25,7 +25,7 @@ After base optimization, check and fill in the following dimensions as needed (o
 - This is the single most important word for photo-quality output
 
 ### 2. Lens Language & Composition
-- No composition specified → infer appropriate framing from subject (portraits default to medium shot, landscapes to wide angle)
+- No composition specified → keep framing generic unless the shot type is strongly implied by the request
 - Shot types: close-up, medium shot, full body shot, wide angle, telephoto, macro, bird's eye view, low angle, Dutch angle, over-the-shoulder
 - Focal length reference (optional, for precise control):
   - 24-35mm — street photography, environmental portraits, architecture (wide angle)
@@ -43,7 +43,7 @@ After base optimization, check and fill in the following dimensions as needed (o
 - Portraits: "looking directly at camera", "gazing into the distance", "laughing naturally"
 - People in scenes: "reading a book", "walking through rain", "leaning against a wall"
 - Animals: "mid-leap", "curled up sleeping", "tilting head curiously"
-- If the user hasn't mentioned an action and the subject is a person/animal, infer a natural one from context
+- If the user hasn't mentioned an action, do not invent one unless it is already obvious from the scene description
 
 ### 4. Environment / Setting
 - Describe the environment where the scene takes place
@@ -52,16 +52,16 @@ After base optimization, check and fill in the following dimensions as needed (o
 - Weather/atmosphere: fog, rain, snow, dust particles, haze — these add depth and dimensionality
 
 ### 5. Lighting Description
-- No lighting specified → infer natural light conditions from scene
+- No lighting specified → omit it unless the scene already implies a clear lighting condition
 - Outdoor: golden hour, blue hour, soft natural lighting, overcast diffused light, harsh midday sun
 - Indoor: soft window light, studio lighting, warm ambient light
 - Night: neon lights, streetlamp glow, moonlight
 - Time-of-day markers are more precise than generic terms: "blue hour light" > "natural light"
 
 ### 6. Depth of Field
-- Portrait / close-up → suggest shallow depth of field, bokeh background
-- Landscape / architecture → suggest deep focus, everything in sharp detail
-- Product → suggest slightly blurred background, focus on product
+- Portrait / close-up → shallow depth of field is an optional refinement, not a default requirement
+- Landscape / architecture → deep focus may be helpful when the user wants overall clarity
+- Product → slightly blurred background is only appropriate when the user wants a photographic product scene rather than catalog clarity
 
 ### 7. Film / Sensor Simulation (optional, advanced)
 - Dramatically shifts color rendering — use when the user wants a specific photographic look:
@@ -77,8 +77,8 @@ After base optimization, check and fill in the following dimensions as needed (o
 - Only add material descriptions when the subject has prominent texture features
 
 ### 9. Mood & Color Tone
-- Infer from scene emotion: warm tones, cool tones, high contrast, soft muted colors
-- Do not add proactively — only supplement when the scene has a clear emotional direction
+- Mood and color tone can follow scene emotion when it is already evident from the request
+- Do not add proactively — only supplement when the user or scene has a clear emotional direction
 
 ## Prompt Element Order
 
@@ -97,7 +97,7 @@ When building the enhanced prompt, follow this order for best results:
 
 **Base optimization**: A girl reading a book in a café
 
-**Enhanced result**: A photorealistic medium shot of a girl reading a book in a cozy café with worn wooden tables, set by a large window. Soft window light casting warm highlights on her face, shallow depth of field with bokeh background, warm natural tones
+**Enhanced result**: A photorealistic medium shot of a girl reading a book in a café, natural indoor lighting, realistic colors, clear focus on the subject
 
 ## Aspect Ratio
 
@@ -112,5 +112,6 @@ When building the enhanced prompt, follow this order for best results:
 - Maintain realism; avoid adding artistic filter vocabulary
 - Do not add specific appearance details (hair color, skin tone, etc.) to people unless the user mentioned them
 - The word "photorealistic" is critical — always include it for photo-intent prompts
+- Do not add lens, bokeh, action, or time-of-day details unless they are requested or clearly implied
 - Aim for 40-80 words in the final enhanced prompt — enough detail for Gemini without overloading
 - Write in natural sentence form, not comma-separated tag lists — Gemini processes natural language better

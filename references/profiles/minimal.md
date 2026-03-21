@@ -32,16 +32,16 @@ After base optimization, check and fill in the following dimensions as needed (o
   - "subject in the lower-right third"
   - "centered with vast empty space above and below"
   - "small subject at the bottom of the frame"
-- Unspecified → infer from purpose:
+- Unspecified → only infer placement when the purpose is explicit:
   - Wallpaper → centered composition or rule of thirds placement
   - Needs text overlay → subject positioned to one side, leaving space for text
   - Purely decorative → balanced, harmonious placement
 
 ### Color Palette Constraint
 - Minimal style typically calls for restrained color
-- Suggest limited color palette, 2-3 colors maximum
-- Wallpaper → infer from use case (desktop: low contrast so icons remain visible; phone: can be slightly richer)
-- No color specified → muted, soft tones as safe default
+- Suggest limited color palette only when the user is clearly asking for minimalist control
+- Wallpaper → infer icon-visibility constraints only when desktop/phone usage is explicit
+- No color specified → do not inject a palette unless the request already implies one
 
 ### Texture & Detail
 - Solid color → smooth gradient or solid color with subtle texture
@@ -90,7 +90,7 @@ Differentiate between two distinct wallpaper use cases:
 
 - The core of minimal style is "less is more" — exercise restraint when adding elements
 - Do not add complex lighting descriptions; a simple light direction is sufficient
-- For wallpapers, automatically suggest an appropriate aspect ratio
+- For wallpapers, aspect ratio suggestions are fine; background color, gradient, or texture choices should still stay conservative
 - "Simple" (简单) does not equal "minimalist style" (极简风格) — be careful to distinguish
 - Phone wallpapers should avoid placing elements where the clock, notch, or dock would obscure them
 - Aim for shorter prompts than other profiles — 30-50 words is ideal for minimal

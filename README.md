@@ -5,9 +5,19 @@ A [Claude Code Skill](https://docs.anthropic.com/en/docs/claude-code/skills) tha
 ## What It Does
 
 1. **Smart prompt optimization** — Translates Chinese descriptions into high-quality English prompts, fixing common issues (keyword dumps, SD/MJ syntax, negative phrasing, etc.)
-2. **Intent-aware enhancement** — Automatically detects image intent (photo, illustration, diagram, text-heavy, minimal, sticker, 3D, product, concept-art) and applies domain-specific prompt enhancements
+2. **Conservative intent-aware enhancement** — Detects image intent (photo, illustration, diagram, text-heavy, minimal, sticker, 3D, product, concept-art) and applies domain-specific enhancements without inventing unnecessary style decisions
 3. **In-image text preservation** — Keeps Chinese text meant to appear in the image (e.g. `写着"生日快乐"的蛋糕` → `a cake with the text "生日快乐"`)
-4. **Multiple generation modes** — Default (interactive), Direct (no confirmations), and Raw (translate-only)
+4. **Constraint-first workflow** — Extracts exact text, keep/avoid constraints, target use, and edit invariants before generating
+5. **Multiple generation modes** — Default (interactive), Direct (no confirmations), and Raw (translate-only)
+
+## Design Principles
+
+- **Ask instead of guess** when multiple plausible directions would materially change the result
+- **Do not add high-impact details lightly**: background, palette, lighting mood, lens language, texture, extra props
+- **Treat text and structure as locked content** for posters, logos, diagrams, and information graphics
+- **Use English for the final prompt by default**; preserve original language only for in-image text and locked names/labels
+- **For edits, preserve invariants first** and change only the requested delta
+- **Iterate one major variable at a time** for follow-up revisions
 
 ## Installation
 
@@ -27,7 +37,7 @@ After installation, run the init command to configure your environment:
 
 This will:
 - Install Python dependencies (`google-genai`, `pillow`)
-- Guide you through setting up your Gemini API key in `~/.gemini/.env`
+- Guide you through setting up your Gemini API key in one of the supported config sources
 - Test API connectivity
 
 **Get a Gemini API key**: https://aistudio.google.com/apikey (free tier available)
@@ -54,8 +64,8 @@ This will:
 
 | Flag | Description |
 |---|---|
-| `--direct` | Skip all confirmations, trust optimization fully |
-| `--raw` | Translate only, no optimization |
+| `--direct` | Skill-layer mode: skip confirmations, but still keep enhancement conservative |
+| `--raw` | Skill-layer mode: translate only, no optimization |
 | `--model <id>` | Specify model (`gemini-3-pro-image-preview` or `gemini-2.0-flash-preview-image-generation`) |
 | `--aspect <ratio>` | Aspect ratio (e.g. `16:9`, `1:1`, `9:16`) |
 | `--size <WxH>` | Output dimensions (e.g. `1024x1024`) |
@@ -101,16 +111,19 @@ This will:
 ```
 User input (Chinese)
   │
+  ├─ Phase 0: Constraint Extraction
+  │   └─ exact text / keep / avoid / platform / invariants
+  │
   ├─ Phase 1: Base Optimization (silent)
   │   ├─ Format correction (fix keyword dumps, SD syntax, etc.)
   │   ├─ Smart translation (descriptive → English, in-image text → preserved)
-  │   └─ Structuring (subject first, add trigger prefix)
+  │   └─ Structuring + conservative guardrails
   │
   ├─ Phase 2: Intent Recognition
   │   └─ Match to profile: photo / illustration / diagram / text-heavy / minimal / sticker / 3d / product / concept-art / general
   │
   └─ Phase 3: Enhancement (if profile matched)
-      └─ Load profile-specific rules → fill missing dimensions → confirm with user
+      └─ Load profile-specific rules → fill only justified dimensions → confirm high-impact additions with user
 ```
 
 ## Available Models

@@ -9,10 +9,10 @@
 After base optimization, check and fill in the following dimensions as needed (only add what the user hasn't mentioned):
 
 ### Outline & Edge Treatment (highest priority)
-- Default: bold black outline, die-cut sticker edge
+- Do not force a specific outline treatment unless the user asks for sticker-platform / die-cut / LINE-style output
 - Kawaii/LINE style → rounded bold outline, white border margin
 - Meme/reaction → optional outline; focus on expression clarity
-- Always specify: "on a clean white background" (unless user requests otherwise)
+- Use a clean simple background only when needed for sticker readability or export intent; do not always force white background
 
 ### Expression & Emotion
 - The emotion IS the content — make it the central focus of the prompt
@@ -27,7 +27,7 @@ After base optimization, check and fill in the following dimensions as needed (o
 - High contrast between subject and background
 
 ### Art Style
-- No style specified → suggest kawaii / cute cartoon as default (most universal for stickers)
+- No style specified → keep the sticker style generic, or offer kawaii / LINE / meme as options instead of auto-picking one
 - Available styles:
   - Kawaii (可爱风) → round shapes, pastel accents, sparkling effects
   - LINE style → clean vector lines, flat colors, consistent character proportions
@@ -57,6 +57,6 @@ After base optimization, check and fill in the following dimensions as needed (o
 
 - Stickers are a legitimate use case for chibi proportions and exaggerated expressions — unlike the general illustration profile, anthropomorphic cuteness IS appropriate here
 - For character stickers, prioritize expression clarity over detail richness
-- Always default to white background unless the user specifies otherwise — stickers need clean edges for messaging platforms
+- Do not force white background unless the user wants platform-ready sticker output or a clean cut-out look
 - Meme-style stickers may include text — use Impact font or bold outlined text, placed at top/bottom
 - When user requests a "set" or "series" (一组/一套), generate one at a time but maintain consistency instructions in every prompt

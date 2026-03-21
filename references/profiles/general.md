@@ -17,7 +17,7 @@ Light structural enhancement (safe improvements that never distort intent):
 4. Ensure the prompt is a complete descriptive sentence, not a bare noun phrase
 5. Make spatial relationships explicit: "a cat lying on top of a keyboard" > "a cat on a keyboard"
 6. Specify quantity when ambiguous: "a single cat" when only one is intended
-7. Infer and suggest an appropriate aspect ratio based on content (scene → 16:9, character → 3:4, square → 1:1)
+7. If helpful, suggest an appropriate aspect ratio based on content (scene → 16:9, character → 3:4, square → 1:1), but keep it as a suggestion rather than a hidden assumption
 
 ## Design Principle
 
@@ -26,6 +26,7 @@ Light structural enhancement (safe improvements that never distort intent):
 - User didn't specify lighting → don't add lighting
 - Faithfully convey the user's description; only perform format, language, and structural improvements
 - Light structural improvements (complete sentences, explicit spatial relationships, quantity) are always safe
+- If even aspect ratio would materially affect the user's purpose, ask or surface it as an option instead of silently deciding
 
 ## Example
 

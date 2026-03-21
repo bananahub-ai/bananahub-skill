@@ -12,6 +12,7 @@ After base optimization, check and fill in the following dimensions as needed (o
 - User mentions "动漫/二次元" → anime style / manga style
 - User mentions "卡通" → cartoon illustration
 - User mentions "手绘" → hand-drawn illustration
+- User mentions "手绘笔记 / sketchnote / 白板风" → only use full sketch-note treatment when the request is clearly explanatory; otherwise keep it as hand-drawn line art or marker sketch
 - User mentions "水彩" → watercolor painting
 - **No explicit style → do not infer a specific style**; instead offer options during enhancement confirmation (e.g., anime / digital illustration / watercolor / cartoon) and let the user choose
 - Never override a style the user has already specified
@@ -25,6 +26,8 @@ After base optimization, check and fill in the following dimensions as needed (o
 - Pixel art → visible pixels, limited color palette, retro aesthetic
 - Flat design → flat colors, no gradients, no shadows, geometric shapes, clean vector lines, bold color blocking
 - Ink / line art → bold ink outlines, variable line weight, minimal color
+- Hand-drawn line art → slightly imperfect linework, sketch texture, natural hand-made feel; do not force white background or fixed accent colors
+- Marker sketch → rough outlines, handwritten callouts only when requested, educational or storyboard feel
 - Comic book (Western) → bold ink outlines, Ben-Day dots, dramatic shadows, dynamic panel composition
 - Isometric illustration → isometric perspective, 30-degree angle, no vanishing point, clean geometric shapes
 
@@ -34,7 +37,7 @@ After base optimization, check and fill in the following dimensions as needed (o
   - Examples: "watercolor meets cyberpunk", "pixel art with modern color palette", "anime style but with oil painting textures"
 
 ### Color Scheme
-- No color scheme specified → infer reasonable default from art style
+- No color scheme specified → keep color guidance broad unless the chosen style strongly implies one
 - Anime → vibrant colors (unless mood is dark)
 - Watercolor → soft pastel tones
 - Cyberpunk → neon colors against dark background
@@ -48,9 +51,10 @@ After base optimization, check and fill in the following dimensions as needed (o
 - For character illustrations: consider implied camera angle — "slight low angle for heroic feel", "high angle for vulnerability"
 
 ### Background Treatment
-- Character design / standing illustration → suggest simple clean background / white background
+- Character design / standing illustration → if the user does not care about background, keep it simple and unobtrusive; do not force white background
 - Scene illustration → supplement environment details based on description
 - Comic panel → use the Comic Panel Template below
+- Hand-drawn character explainer → keep the background simple or follow the user's setting, add a few supporting icons/arrows/callouts only if they clarify the concept; do not default to full infographic density
 
 ### Emotional Storytelling
 - Illustrations benefit from explicit mood/narrative descriptions:
@@ -58,6 +62,16 @@ After base optimization, check and fill in the following dimensions as needed (o
   - "a moment captured just as..." (narrative descriptions work well with Gemini)
   - "triumphant and powerful", "peaceful and serene"
 - Only add when it enhances the scene without contradicting user intent
+
+## Hand-Drawn Illustration vs. Sketch Note
+
+Use this split to avoid over-optimizing all hand-drawn requests into a note layout:
+
+- Character / mascot / scene + "手绘" → stay in `illustration`; focus on line quality, brush or marker texture, and restrained background treatment
+- Tutorial / explanation / comparison + "手绘笔记 / sketchnote" → route to `diagram` or `text-heavy` and apply the hand-drawn overlay from `references/prompt-guide.md`
+- Hybrid case (e.g. mascot explaining a concept) → keep the illustrated subject primary, then add only 1-3 supporting callouts or arrows
+
+When the user only wants a hand-drawn aesthetic, do **not** automatically add arrows, labels, panels, or note-card layouts.
 
 ## Comic Panel Template
 
@@ -93,7 +107,7 @@ The lighting creates a [mood] mood.
 When the subject is a well-known character (from anime, games, movies, etc.):
 
 - **Do NOT describe their appearance** — the model already knows what Tachikoma, Pikachu, Totoro, etc. look like
-- **Only add**: art style, rendering technique, color palette tendency, background treatment, mood
+- **Only add**: user-implied presentation cues such as art style, rendering technique, or other clearly requested framing details
 - **Rationale**: vague descriptions like "round body, optical eyes" can override the model's correct internal knowledge and introduce visual artifacts (e.g., human-like eyes on a robot)
 
 **Example — Known IP character**:
@@ -126,5 +140,7 @@ Do NOT add: human facial features (eyes, mouth, smile), chibi/Q版 proportions, 
 - Never apply photographic lens language (85mm lens, bokeh) to illustrations — use illustration-specific composition terms instead
 - Text in manga/anime is typically a visual element — preserve original language, do not translate
 - **When unsure if a descriptor is unambiguous, omit it** — a missing detail is better than a misleading one
+- Do not force all "手绘" requests into a whiteboard / sketchnote layout; that treatment is only appropriate for explanatory content
+- Do not add "paper", "whiteboard", "notebook page", or marker-color assumptions unless the user asked for them
 - Write in natural descriptive sentences, not comma-separated tag lists
 - Aim for 40-80 words in the final enhanced prompt

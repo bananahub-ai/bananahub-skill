@@ -16,17 +16,23 @@ After base optimization, check and fill in the following dimensions as needed (o
 - Text exceeding 25 characters → warn and suggest shortening
 - **Multi-line text**: describe each line separately with its own style and position:
   - "For the top line, the word '咖啡' in large bold serif. Below that, '每日新鲜烘焙' in smaller elegant script"
-- **Text rendering accuracy**: bold serif fonts render best in Gemini. When text legibility is critical and no specific font is requested, default to bold, high-contrast typography
+- **Text rendering accuracy**: bold serif fonts often render best in Gemini. Treat this as a rendering aid, not a universal design default; do not override the user's intended typography style
+
+### Exact Copy Lock
+- Treat user-provided text as exact copy, not inspiration
+- Do not paraphrase slogans, translate display text, or invent filler microcopy
+- If key title / subtitle / CTA text is missing or unstable, ask first in default mode
+- Separate required text from optional decorative text; if optional text was not specified, leave it out
 
 ### Design Context (critical for quality)
-- **Always embed the brand identity or purpose** in the prompt — context primes Gemini's design knowledge:
+- **Embed the brand identity or purpose when the user provides it** — context primes Gemini's design knowledge:
   - "A minimalist skincare brand logo" >> "create a logo"
   - "A rustic artisanal coffee shop storefront sign" >> "a coffee shop sign"
   - "A children's birthday party invitation" >> "an invitation"
 - Include industry, tone, and target audience when the user provides them
 
 ### Typography Style
-- No font specified → infer from design type
+- No font specified → keep typography guidance generic unless the use case strongly implies a functional requirement
 - Logo → bold, modern, distinctive letterforms
 - Poster (海报) → large impactful typography, eye-catching
 - Menu (菜单) → elegant, readable, well-organized
@@ -47,7 +53,7 @@ After base optimization, check and fill in the following dimensions as needed (o
 - For cards: centered hierarchy (title → content → details)
 
 ### Design Language
-- No style specified → infer from purpose
+- No style specified → do not invent a full design language; only add broad functional constraints that improve readability
 - Branding (品牌类) → clean, professional, modern design
 - Event (活动类) → vibrant, energetic, festive
 - Food & beverage (餐饮类) → warm, inviting, appetizing color scheme
@@ -71,7 +77,7 @@ For designs with multiple text elements, use this two-step approach for signific
 
 **Base optimization**: Create a coffee shop sign with the text "老张咖啡"
 
-**Enhanced result**: Create a rustic artisanal coffee shop storefront sign with the text "老张咖啡" as the dominant visual element in bold serif Chinese typography, centered on a weathered wooden plank background, warm earth-tone color palette, high contrast between cream-colored text and dark wood, professional signage design
+**Enhanced result**: Create a coffee shop sign with the text "老张咖啡" as the dominant visual element, centered, clear high-contrast Chinese typography, clean signage-focused composition
 
 ## Model Recommendation
 
@@ -92,4 +98,6 @@ For text rendering scenarios, **automatically prefer `gemini-3-pro-image-preview
 - Long text (e.g., full menu content) may render poorly; suggest splitting into separate generations
 - Gemini supports multilingual text rendering — inform the user of this capability when relevant
 - For Chinese text, keeping to 4-6 characters produces highest accuracy
+- Do not invent brand tone, palette, materials, or decorative style unless the user gave enough context or confirmed the direction
+- Missing copy is a clarification issue, not an invitation to write the copy yourself
 - Write prompts in natural descriptive sentences, not tag lists

@@ -9,7 +9,7 @@
 After base optimization, check and fill in the following dimensions as needed (only add what the user hasn't mentioned):
 
 ### Presentation Format
-- Infer from subject type:
+- Infer presentation format only when the request wording strongly implies it:
   - Character → "character concept art, hero shot, three-quarter dynamic pose"
   - Character design sheet → "character turnaround sheet showing front, side, and back views"
   - Prop/weapon → "prop design sheet with multiple angles and detail callouts"
@@ -19,10 +19,10 @@ After base optimization, check and fill in the following dimensions as needed (o
 - When user says "立绘" → single hero shot with clean background
 
 ### Rendering Quality
-- No quality specified → infer from context:
+- No quality specified → keep rendering quality broad unless the request clearly signals rough sketch vs. polished final:
   - "概念草图/探索" → "rough concept sketch, loose painterly strokes, exploratory"
   - "原画/成品" → "highly detailed digital painting, polished concept art, professional quality"
-  - Default → "detailed digital painting, concept art quality"
+  - Otherwise → "concept art presentation"
 - Available rendering styles:
   - **Painterly digital art**: loose visible brushstrokes, artistic rendering
   - **Polished concept art**: clean rendering, detailed texturing, production quality
@@ -30,7 +30,7 @@ After base optimization, check and fill in the following dimensions as needed (o
   - **Ink concept sketch**: ink linework with selective color washes
 
 ### Design Language / Genre
-- Infer from subject matter or ask user:
+- Infer from subject matter only when the genre cue is already present; otherwise ask or keep it open:
   - Fantasy (奇幻) → "high fantasy design, ornate details, magical elements"
   - Sci-fi (科幻) → "science fiction design, sleek technological aesthetic, hard-surface modeling"
   - Cyberpunk (赛博朋克) → "cyberpunk aesthetic, neon accents, augmented tech, gritty urban"
@@ -45,7 +45,7 @@ After base optimization, check and fill in the following dimensions as needed (o
 - Environment → "layered composition with distinct foreground, midground, and background"
 
 ### Lighting for Form
-- Default: "dramatic side lighting to reveal three-dimensional form and surface detail"
+- Lighting for form is optional; only specify it when the request needs a presentation look or mood cue
 - Environment concepts → "atmospheric lighting establishing time of day and mood"
 - Design sheets → "even neutral lighting for clear design visibility"
 
@@ -75,7 +75,7 @@ After base optimization, check and fill in the following dimensions as needed (o
 
 - Concept art is about communicating design ideas — details that serve the design are valuable, unlike the illustration profile's restraint philosophy
 - For turnaround sheets, explicitly describe each view: "front view on the left, three-quarter view in the center, back view on the right"
-- Genre/design language is critical context — always try to identify it from user input
+- Genre/design language is important context, but do not invent one when the user has not implied it
 - Known IP characters follow the same rules as illustration: trust model knowledge, do not add appearance descriptions
 - Unlike illustration, concept art benefits from technical material descriptions: "leather armor with metal rivets", "carbon fiber chassis"
 - When user mentions "探索/草图", reduce rendering detail — rough sketches should look intentionally loose
