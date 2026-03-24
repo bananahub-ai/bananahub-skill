@@ -106,6 +106,67 @@ This will:
 /nanobanana edit 添加一顶圣诞帽 --input avatar.png --output avatar_xmas.png
 ```
 
+## Templates
+
+Built-in templates are curated prompt recipes with variable slots — pick one and generate immediately, with or without customization.
+
+### Template Commands
+
+| Command | Description |
+|---|---|
+| `/nanobanana templates` | List all available templates |
+| `/nanobanana templates <name>` | Show template details, variables, and tips |
+| `/nanobanana use <name>` | Generate using template defaults |
+| `/nanobanana use <name> <描述>` | Generate with custom variable overrides |
+| `/nanobanana create-template` | AI-guided template creation wizard |
+
+### Examples
+
+```bash
+# List all templates
+/nanobanana templates
+
+# Preview a template
+/nanobanana templates cyberpunk-city
+
+# Generate with defaults
+/nanobanana use cyberpunk-city
+
+# Override variables with a description
+/nanobanana use cyberpunk-city 东京新宿街头，紫色和金色霓虹
+
+# Use with flags
+/nanobanana use cyberpunk-city 上海外滩未来版 --aspect 9:16
+```
+
+### Built-in Templates
+
+| ID | Title | Profile |
+|---|---|---|
+| `cyberpunk-city` | 赛博朋克城市夜景 | photo |
+| `cute-sticker` | Q版贴纸表情包 | sticker |
+| `product-white-bg` | 电商白底产品图 | product |
+| `info-diagram` | 信息图/流程图 | diagram |
+| `minimal-wallpaper` | 极简手机壁纸 | minimal |
+
+### Installing More Templates (BananaHub)
+
+```bash
+# Search the community hub
+npx bananahub search <keyword>
+
+# Install a template from GitHub
+npx bananahub add <username>/<repo>
+```
+
+User-installed templates are stored in `~/.config/nanobanana/templates/` and take precedence over built-ins on ID conflict.
+
+### Creating Your Own Template
+
+Run `/nanobanana create-template` for a guided 4-phase wizard: intent gathering → prompt drafting → sample generation → assembly. The wizard generates a `template.md` ready to publish on GitHub or submit to BananaHub.
+
+Template format: `{{variable|default value}}` slots in the prompt, with a variables table and tips section. Full spec in `references/template-format-spec.md`.
+
 ## How Prompt Optimization Works
 
 ```
