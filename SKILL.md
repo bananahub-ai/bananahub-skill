@@ -46,7 +46,7 @@ Route user input to the appropriate action based on arguments:
 | `init` | Check environment config (API key, dependencies, connectivity); guide user through setup |
 | `help` | Show usage instructions (brief list of supported commands and examples) |
 | `<中文描述>` | Default flow: base optimization → intent recognition → optional enhancement → generate |
-| `edit <描述> --input <图片路径>` | Edit an existing image: optimize prompt → call edit subcommand |
+| `edit <描述> --input <图片路径> [--ref <参考图>...]` | Edit an existing image (supports up to 13 extra reference images): optimize prompt → call edit subcommand |
 | `optimize <描述>` | Optimize prompt only; display result without generating image or calling the CLI |
 | `generate <English prompt>` | Generate image directly with given English prompt (skip optimization) |
 | `models` | Run `python3 scripts/nanobanana.py models` to query image-capable models from API (falls back to built-in list on failure) |
@@ -61,6 +61,7 @@ Optional flags (append to any generation command):
 - `--size <WxH>` — output dimensions (e.g., 1024x1024)
 - `--output <path>` — specify output path
 - `--input <path>` — source image for edit commands
+- `--ref <path> [path...]` — reference images for edit commands (up to 13, for style/content guidance)
 - `--direct` — direct mode: trust optimization fully, skip all confirmations, generate immediately
 - `--raw` — raw mode: translate only, no optimization, generate immediately
 - `--no-fallback` — disable automatic model fallback; fail immediately if the requested model is unavailable
@@ -382,7 +383,7 @@ If `general` was matched: skip enhancement confirmation, generate directly with 
 
 When the user provides an edit command with a source image:
 
-1. **Validate input**: confirm the `--input` image path exists and is readable
+1. **Validate input**: confirm the `--input` image path exists and is readable; validate any `--ref` reference images too
 2. **Extract invariants first**: identify what must remain unchanged in the source image before drafting the edit prompt
    - If unclear and important, ask the user in default mode
 3. **Optimize the edit prompt**: run base optimization (Phase 1) on the edit instruction — skip intent-based enhancement (Phase 2/3), since edit instructions are usually specific enough
@@ -390,20 +391,31 @@ When the user provides an edit command with a source image:
    - Prefer phrasing that isolates the delta: "keep everything else the same except..."
 4. **Build command**:
    ```bash
-   python3 ~/.claude/skills/nanobananaskill/scripts/nanobanana.py edit "<prompt>" --input <image_path> [--model MODEL] [--output PATH]
+   python3 ~/.claude/skills/nanobananaskill/scripts/nanobanana.py edit "<prompt>" --input <image_path> [--ref <ref1> <ref2> ...] [--model MODEL] [--output PATH]
    ```
+   - `--ref` accepts up to 13 additional reference images for style transfer, character consistency, or multi-image blending
+   - Total images (input + refs) must not exceed 14 (Gemini API limit)
 5. **Execute script and parse JSON output**
 6. **On success**, display result:
    ```
    ✅ 图片已编辑
    📁 路径: [file_path]
    📥 原图: [input_path]
+   📎 参考图: [ref_images, if any]
    🔧 模型: [model] | 尺寸: [WxH]
    📝 使用的 Prompt: [final prompt used]
    💬 模型说明: [model_text, if any]
    ```
    Remind user they can view the image with the Read tool.
 7. **On failure**, provide suggestions based on error type (same as generation flow)
+
+### Multi-Image Editing Use Cases
+
+When the user provides reference images via `--ref`, common scenarios include:
+- **Style transfer**: `--input photo.png --ref style_reference.png` + prompt describing the desired style
+- **Character consistency**: `--input scene.png --ref char1.png char2.png` + prompt placing characters into the scene
+- **Multi-image blending**: `--input base.png --ref img2.png img3.png` + prompt describing how to combine them
+- **Object replacement**: `--input original.png --ref new_object.png` + prompt describing the replacement
 
 ## Iteration Guide
 

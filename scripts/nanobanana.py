@@ -322,13 +322,18 @@ def cmd_models(args):
         }, ensure_ascii=False))
 
 
-def _try_edit(client, model, prompt, input_image):
-    """Attempt image editing with a single model. Returns (image_part, text_parts, None) or (None, [], error_str)."""
+def _try_edit(client, model, prompt, input_images):
+    """Attempt image editing with a single model. Returns (image_part, text_parts, None) or (None, [], error_str).
+
+    Args:
+        input_images: list of PIL Image objects (main image + optional reference images).
+    """
     from google.genai import types
 
+    contents = [prompt] + input_images
     response = client.models.generate_content(
         model=model,
-        contents=[prompt, input_image],
+        contents=contents,
         config=types.GenerateContentConfig(response_modalities=["TEXT", "IMAGE"]),
     )
 
@@ -365,16 +370,40 @@ def cmd_edit(args):
         }, ensure_ascii=False))
         sys.exit(1)
 
+    # Validate reference images
+    ref_paths = []
+    for ref in (args.ref or []):
+        rp = Path(ref)
+        if not rp.exists():
+            print(json.dumps({
+                "status": "error",
+                "error": f"Reference image not found: {rp}",
+            }, ensure_ascii=False))
+            sys.exit(1)
+        ref_paths.append(rp)
+
     from PIL import Image
 
+    # Load all images: main input + references
+    input_images = []
     try:
-        input_image = Image.open(str(input_path))
+        input_images.append(Image.open(str(input_path)))
     except Exception as e:
         print(json.dumps({
             "status": "error",
             "error": f"Cannot read input image: {e}",
         }, ensure_ascii=False))
         sys.exit(1)
+
+    for rp in ref_paths:
+        try:
+            input_images.append(Image.open(str(rp)))
+        except Exception as e:
+            print(json.dumps({
+                "status": "error",
+                "error": f"Cannot read reference image {rp}: {e}",
+            }, ensure_ascii=False))
+            sys.exit(1)
 
     config_data = load_config(getattr(args, "config", None))
     client = get_client(config_data)
@@ -404,7 +433,7 @@ def cmd_edit(args):
 
     for model in models_to_try:
         try:
-            image_part, text_parts, gen_error = _try_edit(client, model, prompt, input_image)
+            image_part, text_parts, gen_error = _try_edit(client, model, prompt, input_images)
 
             if gen_error:
                 print(json.dumps({
@@ -434,7 +463,10 @@ def cmd_edit(args):
                 "model": model,
                 "prompt": prompt,
                 "image_size": f"{image.width}x{image.height}",
+                "total_images": len(input_images),
             }
+            if ref_paths:
+                result["ref_images"] = [str(rp) for rp in ref_paths]
             if model != requested_model:
                 result["fallback_from"] = requested_model
                 result["models_tried"] = tried + [model]
@@ -624,6 +656,7 @@ def main():
     edit_parser = subparsers.add_parser("edit", help="Edit an existing image with a text prompt")
     edit_parser.add_argument("prompt", help="Text prompt describing the edit")
     edit_parser.add_argument("--input", "-i", required=True, help="Path to the source image")
+    edit_parser.add_argument("--ref", "-r", nargs="+", default=[], help="Reference image paths (up to 13 additional images for style/content guidance)")
     edit_parser.add_argument("--model", "-m", help="Model ID (default: gemini-3-pro-image-preview)")
     edit_parser.add_argument("--size", "-s", help="Resize output to WxH, e.g. 1024x1024")
     edit_parser.add_argument("--output", "-o", help="Output file path (default: current directory)")
