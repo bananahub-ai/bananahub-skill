@@ -1,6 +1,16 @@
 # Nano Banana 🍌
 
+[简体中文说明](./README.zh-CN.md)
+
 A [Claude Code Skill](https://docs.anthropic.com/en/docs/claude-code/skills) that turns Chinese image descriptions into optimized English prompts and generates images via the Gemini API.
+
+## Product Summary
+
+Nano Banana is not just a prompt optimizer. It is an agent-native image workflow for Gemini inside Claude Code:
+
+- **Agent-native runtime** — optimization, generation, editing, template use, and iteration happen in the same conversation
+- **Progressive disclosure guidance** — the skill stays quiet on low-risk cleanup, asks only when ambiguity would materially change the result, and suggests templates only when there is a strong match
+- **Installable template ecosystem** — built-ins cover common jobs, while BananaHub lets users discover and install extra prompt modules without bloating the base skill
 
 ## What It Does
 
@@ -9,6 +19,7 @@ A [Claude Code Skill](https://docs.anthropic.com/en/docs/claude-code/skills) tha
 3. **In-image text preservation** — Keeps Chinese text meant to appear in the image (e.g. `写着"生日快乐"的蛋糕` → `a cake with the text "生日快乐"`)
 4. **Constraint-first workflow** — Extracts exact text, keep/avoid constraints, target use, and edit invariants before generating
 5. **Multiple generation modes** — Default (interactive), Direct (no confirmations), and Raw (translate-only)
+6. **Template-driven reuse and distribution** — Uses built-in templates, supports AI-guided template creation, and connects to BananaHub for searchable installation
 
 ## Design Principles
 
@@ -24,7 +35,7 @@ A [Claude Code Skill](https://docs.anthropic.com/en/docs/claude-code/skills) tha
 ```bash
 claude skill install /path/to/nanobanana
 # or from GitHub
-claude skill install https://github.com/zkywalker/nanobanana
+claude skill install https://github.com/nano-banana-hub/nanobanana
 ```
 
 ## Setup
@@ -108,7 +119,7 @@ This will:
 
 ## Templates
 
-Built-in templates are curated prompt recipes with variable slots — pick one and generate immediately, with or without customization.
+Built-in templates are curated prompt modules with variable slots. Use them directly, override only the pieces you care about, or install more from BananaHub when a repeatable job deserves its own module.
 
 ### Template Commands
 

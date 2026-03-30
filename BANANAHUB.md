@@ -1,9 +1,24 @@
 # BananaHub — Project Planning Document
 
+[简体中文说明](./BANANAHUB.zh-CN.md)
+
 > This is a human-facing planning document for the BananaHub template ecosystem.
 > For agent-consumable references, see `references/template-system.md` and `references/template-format-spec.md`.
 
 **Version**: 0.1.0 | **Status**: In Progress | **Date**: 2026-03-24
+
+---
+
+## Positioning
+
+BananaHub is the distribution layer in the Nano Banana product matrix. The full product has four parts:
+
+- **Skill runtime** — the agent-native `/nanobanana` interface for optimization, generation, editing, and iteration
+- **Optimization engine** — constraint extraction, conservative enhancement, progressive clarification, and profile-specific guidance
+- **Template system** — reusable prompt modules with metadata, variables, samples, and auto-matching
+- **BananaHub distribution loop** — searchable gallery, install CLI, machine-readable catalog, and install/trending telemetry
+
+BananaHub is therefore not a giant prompt dump. It is a way to let reusable prompt structures travel as installable modules, without turning the base skill into a monolith.
 
 ---
 
@@ -32,6 +47,7 @@
 - Progressive disclosure: auto-suggest matching templates, don't force
 - Zero config: `npx bananahub add user/repo` and done
 - AI-native: creator skill lets AI help users build templates
+- Searchable + installable: discovery happens in the gallery, activation happens in the workflow
 
 ---
 
@@ -105,6 +121,12 @@ GET /api/trending → [{ "repo": "...", "installs_7d": 15 }, ...]
 ---
 
 ## Hub Site: bananahub.github.io
+
+BananaHub is intentionally optimized for three audiences at once:
+
+- **Humans** — browse by generated result first, then confirm with title, tags, and install command
+- **Agents** — read stable files like `catalog.json` and `llms.txt` instead of scraping UI
+- **Template authors** — publish self-describing repos that remain portable outside the hub
 
 ### Architecture
 
