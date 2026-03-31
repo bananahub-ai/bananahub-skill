@@ -63,7 +63,9 @@ Note:
 Optional flags (append to any generation command):
 - `--model <model_id>` — specify model
 - `--aspect <ratio>` — aspect ratio (e.g., 16:9, 1:1, 9:16)
-- `--size <WxH>` — output dimensions (e.g., 1024x1024)
+- `--image-size <preset>` — native image-size preset (`1K`, `2K`, `4K`)
+- `--resize <WxH>` — post-process resize after generation/edit (e.g., `1024x1024`)
+- `--size <value>` — legacy compatibility flag; `1K/2K/4K` means native image size, `WxH` means post-process resize
 - `--output <path>` — specify output path
 - `--input <path>` — source image for edit commands
 - `--ref <path> [path...]` — reference images for edit commands (up to 13)
@@ -126,6 +128,7 @@ Read `references/optimization-pipeline.md` for the full pipeline. Overview:
 ## Image Editing Flow
 
 1. **Validate input**: confirm `--input` image path exists; validate `--ref` images
+   Reject more than 13 reference images or more than 14 total images.
 2. **Extract invariants**: what must remain unchanged in the source image
 3. **Optimize edit prompt**: run Phase 1 only (skip Phase 2/3); keep conservative, isolate the delta
 4. **Build command**:

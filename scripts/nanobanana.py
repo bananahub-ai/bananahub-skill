@@ -2,9 +2,9 @@
 """Nano Banana - Gemini image generation CLI tool."""
 
 import argparse
-import base64
 import json
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -238,12 +238,17 @@ def cmd_init(args):
 
 IMAGE_KEYWORDS = {"image", "imagen"}
 DEFAULT_MODEL = "gemini-3-pro-image-preview"
+MODEL_ALIASES = {
+    "nano-banana-pro-preview": "gemini-3-pro-image-preview",
+}
+NATIVE_IMAGE_SIZES = ("1K", "2K", "4K")
 
 # Ordered fallback chain: try these models in sequence when the requested model fails
 MODEL_FALLBACK_CHAIN = [
     "gemini-3-pro-image-preview",
     "gemini-3.1-flash-image-preview",
     "gemini-2.5-flash-image",
+    # Keep the old model as the final legacy fallback for older accounts.
     "gemini-2.0-flash-preview-image-generation",
 ]
 
@@ -258,6 +263,102 @@ FALLBACK_MODELS = [
 ]
 
 
+def _canonicalize_model(model):
+    """Map known aliases to the canonical model id used by the runtime."""
+    return MODEL_ALIASES.get((model or "").strip(), (model or "").strip())
+
+
+def _dedupe_preserve_order(items):
+    """Keep the first occurrence of each item while preserving order."""
+    seen = set()
+    result = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        result.append(item)
+    return result
+
+
+def _normalize_image_size(value):
+    """Normalize native image-size presets accepted by Gemini image models."""
+    if not value:
+        return None
+    normalized = value.strip().upper()
+    if normalized in NATIVE_IMAGE_SIZES:
+        return normalized
+    return None
+
+
+def _parse_resize_dims(value):
+    """Parse post-processing resize dimensions in WxH form."""
+    if not value:
+        return None
+    match = re.fullmatch(r"(\d+)x(\d+)", value.strip().lower())
+    if not match:
+        return None
+    width, height = map(int, match.groups())
+    if width <= 0 or height <= 0:
+        return None
+    return width, height
+
+
+def _resolve_image_request_options(args):
+    """Resolve native image-size vs legacy/post-processing resize flags."""
+    native_image_size = None
+    resize_dims = None
+    warnings = []
+
+    explicit_image_size = getattr(args, "image_size", None)
+    if explicit_image_size:
+        native_image_size = _normalize_image_size(explicit_image_size)
+        if not native_image_size:
+            supported = ", ".join(NATIVE_IMAGE_SIZES)
+            raise ValueError(
+                f"Invalid --image-size value: {explicit_image_size}. "
+                f"Use one of: {supported}."
+            )
+
+    explicit_resize = getattr(args, "resize", None)
+    if explicit_resize:
+        resize_dims = _parse_resize_dims(explicit_resize)
+        if not resize_dims:
+            raise ValueError(
+                f"Invalid --resize value: {explicit_resize}. Use WxH, for example 1024x1024."
+            )
+
+    legacy_size = getattr(args, "size", None)
+    if legacy_size:
+        legacy_native_size = _normalize_image_size(legacy_size)
+        legacy_resize_dims = _parse_resize_dims(legacy_size)
+        if legacy_native_size:
+            if native_image_size and native_image_size != legacy_native_size:
+                raise ValueError(
+                    f"Conflicting native size values: --image-size {native_image_size} and --size {legacy_size}."
+                )
+            native_image_size = native_image_size or legacy_native_size
+            warnings.append(
+                f"`--size {legacy_size}` is treated as a native image-size preset. Prefer `--image-size {legacy_size}`."
+            )
+        elif legacy_resize_dims:
+            if resize_dims and resize_dims != legacy_resize_dims:
+                raise ValueError(
+                    f"Conflicting resize values: --resize {explicit_resize} and --size {legacy_size}."
+                )
+            resize_dims = resize_dims or legacy_resize_dims
+            warnings.append(
+                f"`--size {legacy_size}` is treated as post-processing resize. Prefer `--resize {legacy_size}`."
+            )
+        else:
+            supported = ", ".join(NATIVE_IMAGE_SIZES)
+            raise ValueError(
+                f"Invalid --size value: {legacy_size}. Use one of {supported} for native image size "
+                "or WxH for post-processing resize."
+            )
+
+    return native_image_size, resize_dims, warnings
+
+
 def _is_server_error(exception):
     """Check if an exception is a server-side error eligible for fallback."""
     msg = str(exception).upper()
@@ -269,6 +370,7 @@ def _get_fallback_models(current_model):
     If current_model is in the chain, return everything after it.
     If not in the chain, return the full chain (skipping current_model if present).
     """
+    current_model = _canonicalize_model(current_model)
     if current_model in MODEL_FALLBACK_CHAIN:
         idx = MODEL_FALLBACK_CHAIN.index(current_model)
         return MODEL_FALLBACK_CHAIN[idx + 1:]
@@ -280,13 +382,14 @@ def cmd_models(args):
     config = load_config(getattr(args, "config", None))
     try:
         client = get_client(config)
-        api_models = []
+        api_models = {}
         for m in client.models.list(config={"page_size": 100}):
             name = m.name or ""
             # Strip "models/" prefix if present
-            model_id = name.removeprefix("models/")
+            raw_model_id = name.removeprefix("models/")
+            model_id = _canonicalize_model(raw_model_id)
             desc = (m.description or "").lower()
-            model_id_lower = model_id.lower()
+            model_id_lower = raw_model_id.lower()
             display = m.display_name or model_id
 
             # Filter: model id or description mentions image-related keywords
@@ -294,19 +397,30 @@ def cmd_models(args):
             if not is_image:
                 continue
 
-            api_models.append({
+            existing = api_models.get(model_id)
+            if existing:
+                if raw_model_id != model_id:
+                    existing.setdefault("aliases", [])
+                    if raw_model_id not in existing["aliases"]:
+                        existing["aliases"].append(raw_model_id)
+                continue
+
+            entry = {
                 "id": model_id,
                 "display_name": display,
                 "description": (m.description or "")[:120],
                 "input_token_limit": getattr(m, "input_token_limit", None),
                 "output_token_limit": getattr(m, "output_token_limit", None),
                 "default": model_id == DEFAULT_MODEL,
-            })
+            }
+            if raw_model_id != model_id:
+                entry["aliases"] = [raw_model_id]
+            api_models[model_id] = entry
 
         if api_models:
             # Sort: default model first, then alphabetically
-            api_models.sort(key=lambda x: (not x["default"], x["id"]))
-            print(json.dumps({"status": "ok", "source": "api", "models": api_models}, ensure_ascii=False))
+            models = sorted(api_models.values(), key=lambda x: (not x["default"], x["id"]))
+            print(json.dumps({"status": "ok", "source": "api", "models": models}, ensure_ascii=False))
             return
 
         # API returned no image models — use fallback
@@ -322,7 +436,7 @@ def cmd_models(args):
         }, ensure_ascii=False))
 
 
-def _try_edit(client, model, prompt, input_images):
+def _try_edit(client, model, prompt, input_images, image_size=None):
     """Attempt image editing with a single model. Returns (image_part, text_parts, None) or (None, [], error_str).
 
     Args:
@@ -331,10 +445,14 @@ def _try_edit(client, model, prompt, input_images):
     from google.genai import types
 
     contents = [prompt] + input_images
+    image_config = types.ImageConfig(image_size=image_size) if image_size else None
     response = client.models.generate_content(
         model=model,
         contents=contents,
-        config=types.GenerateContentConfig(response_modalities=["TEXT", "IMAGE"]),
+        config=types.GenerateContentConfig(
+            response_modalities=["TEXT", "IMAGE"],
+            image_config=image_config,
+        ),
     )
 
     if not response.candidates or not response.candidates[0].content.parts:
@@ -361,6 +479,12 @@ def cmd_edit(args):
     """Edit an existing image based on a text prompt, with automatic model fallback."""
     import io
 
+    try:
+        native_image_size, resize_dims, option_warnings = _resolve_image_request_options(args)
+    except ValueError as e:
+        print(json.dumps({"status": "error", "error": str(e)}, ensure_ascii=False))
+        sys.exit(1)
+
     # Validate input image before importing heavy dependencies
     input_path = Path(args.input)
     if not input_path.exists():
@@ -381,6 +505,20 @@ def cmd_edit(args):
             }, ensure_ascii=False))
             sys.exit(1)
         ref_paths.append(rp)
+
+    if len(ref_paths) > 13:
+        print(json.dumps({
+            "status": "error",
+            "error": f"Too many reference images: {len(ref_paths)}. Maximum is 13 reference images.",
+        }, ensure_ascii=False))
+        sys.exit(1)
+
+    if 1 + len(ref_paths) > 14:
+        print(json.dumps({
+            "status": "error",
+            "error": f"Too many input images: {1 + len(ref_paths)}. Total images (input + refs) must be 14 or fewer.",
+        }, ensure_ascii=False))
+        sys.exit(1)
 
     from PIL import Image
 
@@ -408,7 +546,8 @@ def cmd_edit(args):
     config_data = load_config(getattr(args, "config", None))
     client = get_client(config_data)
 
-    requested_model = args.model or DEFAULT_MODEL
+    requested_model_input = args.model or DEFAULT_MODEL
+    requested_model = _canonicalize_model(requested_model_input)
     prompt = args.prompt
     no_fallback = getattr(args, "no_fallback", False)
     retries = getattr(args, "retries", 1)
@@ -420,7 +559,7 @@ def cmd_edit(args):
     if no_fallback:
         models_to_try = [requested_model]
     else:
-        models_to_try = [requested_model] + _get_fallback_models(requested_model)
+        models_to_try = _dedupe_preserve_order([requested_model] + _get_fallback_models(requested_model))
 
     tried = []
     last_error = None
@@ -428,14 +567,21 @@ def cmd_edit(args):
     for model in models_to_try:
         for attempt in range(1 + retries):
             try:
-                image_part, text_parts, gen_error = _try_edit(client, model, prompt, input_images)
+                image_part, text_parts, gen_error = _try_edit(
+                    client,
+                    model,
+                    prompt,
+                    input_images,
+                    image_size=native_image_size,
+                )
 
                 if gen_error:
                     print(json.dumps({
                         "status": "error",
                         "error": gen_error,
                         "prompt": prompt,
-                        "model": model,
+                        "requested_model": requested_model_input,
+                        "actual_model": model,
                     }, ensure_ascii=False))
                     sys.exit(1)
 
@@ -453,12 +599,8 @@ def cmd_edit(args):
                 # Save image
                 image = Image.open(io.BytesIO(image_part.inline_data.data))
 
-                if args.size:
-                    try:
-                        w, h = map(int, args.size.split("x"))
-                        image = image.resize((w, h), Image.LANCZOS)
-                    except ValueError:
-                        pass
+                if resize_dims:
+                    image = image.resize(resize_dims, Image.LANCZOS)
 
                 image.save(str(output_path), "PNG")
 
@@ -466,16 +608,26 @@ def cmd_edit(args):
                     "status": "ok",
                     "file": str(output_path),
                     "input": str(input_path),
-                    "model": model,
+                    "requested_model": requested_model_input,
+                    "actual_model": model,
                     "prompt": prompt,
                     "image_size": f"{image.width}x{image.height}",
                     "total_images": len(input_images),
                 }
+                if requested_model_input != requested_model:
+                    result["resolved_requested_model"] = requested_model
+                if native_image_size:
+                    result["native_image_size"] = native_image_size
+                if resize_dims:
+                    result["post_resize"] = f"{resize_dims[0]}x{resize_dims[1]}"
+                if option_warnings:
+                    result["warnings"] = option_warnings
                 if ref_paths:
                     result["ref_images"] = [str(rp) for rp in ref_paths]
                 if model != requested_model:
                     result["fallback_from"] = requested_model
-                    result["models_tried"] = tried + [model]
+                result["fallback_chain"] = models_to_try
+                result["models_tried"] = tried + [model]
                 if text_parts:
                     result["model_text"] = " ".join(text_parts)
                 print(json.dumps(result, ensure_ascii=False))
@@ -513,26 +665,38 @@ def cmd_edit(args):
         "status": "error",
         "error": error_msg,
         "prompt": prompt,
-        "model": requested_model,
+        "requested_model": requested_model_input,
+        "resolved_requested_model": requested_model,
         "retries_per_model": retries,
+        "fallback_chain": models_to_try,
         "models_tried": tried,
     }
+    if native_image_size:
+        result["native_image_size"] = native_image_size
+    if resize_dims:
+        result["post_resize"] = f"{resize_dims[0]}x{resize_dims[1]}"
+    if option_warnings:
+        result["warnings"] = option_warnings
     if hint:
         result["hint"] = hint
     print(json.dumps(result, ensure_ascii=False))
     sys.exit(1)
 
 
-def _try_generate(client, model, prompt, aspect_ratio):
+def _try_generate(client, model, prompt, aspect_ratio, image_size=None):
     """Attempt image generation with a single model. Returns (image_part, None) or (None, error_str)."""
     from google.genai import types
+
+    image_config_kwargs = {"aspect_ratio": aspect_ratio}
+    if image_size:
+        image_config_kwargs["image_size"] = image_size
 
     response = client.models.generate_content(
         model=model,
         contents=prompt,
         config=types.GenerateContentConfig(
             response_modalities=["IMAGE"],
-            image_config=types.ImageConfig(aspect_ratio=aspect_ratio),
+            image_config=types.ImageConfig(**image_config_kwargs),
         ),
     )
 
@@ -555,10 +719,17 @@ def cmd_generate(args):
     from PIL import Image
     import io
 
+    try:
+        native_image_size, resize_dims, option_warnings = _resolve_image_request_options(args)
+    except ValueError as e:
+        print(json.dumps({"status": "error", "error": str(e)}, ensure_ascii=False))
+        sys.exit(1)
+
     config = load_config(getattr(args, "config", None))
     client = get_client(config)
 
-    requested_model = args.model or DEFAULT_MODEL
+    requested_model_input = args.model or DEFAULT_MODEL
+    requested_model = _canonicalize_model(requested_model_input)
     prompt = args.prompt
     aspect_ratio = args.aspect or "1:1"
     no_fallback = getattr(args, "no_fallback", False)
@@ -571,7 +742,7 @@ def cmd_generate(args):
     if no_fallback:
         models_to_try = [requested_model]
     else:
-        models_to_try = [requested_model] + _get_fallback_models(requested_model)
+        models_to_try = _dedupe_preserve_order([requested_model] + _get_fallback_models(requested_model))
 
     tried = []
     last_error = None
@@ -580,7 +751,13 @@ def cmd_generate(args):
         # Retry same model up to (1 + retries) times before fallback
         for attempt in range(1 + retries):
             try:
-                image_part, gen_error = _try_generate(client, model, prompt, aspect_ratio)
+                image_part, gen_error = _try_generate(
+                    client,
+                    model,
+                    prompt,
+                    aspect_ratio,
+                    image_size=native_image_size,
+                )
 
                 if gen_error:
                     # Content policy / no image — not a server error, don't fallback
@@ -588,7 +765,8 @@ def cmd_generate(args):
                         "status": "error",
                         "error": gen_error,
                         "prompt": prompt,
-                        "model": model,
+                        "requested_model": requested_model_input,
+                        "actual_model": model,
                     }, ensure_ascii=False))
                     sys.exit(1)
 
@@ -606,26 +784,32 @@ def cmd_generate(args):
                 # Save image
                 image = Image.open(io.BytesIO(image_part.inline_data.data))
 
-                if args.size:
-                    try:
-                        w, h = map(int, args.size.split("x"))
-                        image = image.resize((w, h), Image.LANCZOS)
-                    except ValueError:
-                        pass
+                if resize_dims:
+                    image = image.resize(resize_dims, Image.LANCZOS)
 
                 image.save(str(output_path), "PNG")
 
                 result = {
                     "status": "ok",
                     "file": str(output_path),
-                    "model": model,
+                    "requested_model": requested_model_input,
+                    "actual_model": model,
                     "prompt": prompt,
                     "aspect_ratio": aspect_ratio,
                     "image_size": f"{image.width}x{image.height}",
                 }
+                if requested_model_input != requested_model:
+                    result["resolved_requested_model"] = requested_model
+                if native_image_size:
+                    result["native_image_size"] = native_image_size
+                if resize_dims:
+                    result["post_resize"] = f"{resize_dims[0]}x{resize_dims[1]}"
+                if option_warnings:
+                    result["warnings"] = option_warnings
                 if model != requested_model:
                     result["fallback_from"] = requested_model
-                    result["models_tried"] = tried + [model]
+                result["fallback_chain"] = models_to_try
+                result["models_tried"] = tried + [model]
                 print(json.dumps(result, ensure_ascii=False))
                 return
 
@@ -664,10 +848,18 @@ def cmd_generate(args):
         "status": "error",
         "error": error_msg,
         "prompt": prompt,
-        "model": requested_model,
+        "requested_model": requested_model_input,
+        "resolved_requested_model": requested_model,
         "retries_per_model": retries,
+        "fallback_chain": models_to_try,
         "models_tried": tried,
     }
+    if native_image_size:
+        result["native_image_size"] = native_image_size
+    if resize_dims:
+        result["post_resize"] = f"{resize_dims[0]}x{resize_dims[1]}"
+    if option_warnings:
+        result["warnings"] = option_warnings
     if hint:
         result["hint"] = hint
     print(json.dumps(result, ensure_ascii=False))
@@ -684,7 +876,9 @@ def main():
     gen_parser.add_argument("prompt", help="Text prompt for image generation")
     gen_parser.add_argument("--model", "-m", help="Model ID (default: gemini-3-pro-image-preview)")
     gen_parser.add_argument("--aspect", "-a", help="Aspect ratio, e.g. 1:1, 16:9, 9:16 (default: 1:1)")
-    gen_parser.add_argument("--size", "-s", help="Resize output to WxH, e.g. 1024x1024")
+    gen_parser.add_argument("--image-size", help="Native image-size preset: 1K, 2K, or 4K")
+    gen_parser.add_argument("--resize", help="Post-process resize to WxH, e.g. 1024x1024")
+    gen_parser.add_argument("--size", "-s", help="Legacy compatibility flag: use 1K/2K/4K for native image size, or WxH for post-processing resize")
     gen_parser.add_argument("--output", "-o", help="Output file path (default: current directory)")
     gen_parser.add_argument("--no-fallback", action="store_true", help="Disable automatic model fallback on server errors")
     gen_parser.add_argument("--retries", type=int, default=1, help="Retry count per model on 503 before fallback (default: 1)")
@@ -695,7 +889,9 @@ def main():
     edit_parser.add_argument("--input", "-i", required=True, help="Path to the source image")
     edit_parser.add_argument("--ref", "-r", nargs="+", default=[], help="Reference image paths (up to 13 additional images for style/content guidance)")
     edit_parser.add_argument("--model", "-m", help="Model ID (default: gemini-3-pro-image-preview)")
-    edit_parser.add_argument("--size", "-s", help="Resize output to WxH, e.g. 1024x1024")
+    edit_parser.add_argument("--image-size", help="Native image-size preset: 1K, 2K, or 4K")
+    edit_parser.add_argument("--resize", help="Post-process resize to WxH, e.g. 1024x1024")
+    edit_parser.add_argument("--size", "-s", help="Legacy compatibility flag: use 1K/2K/4K for native image size, or WxH for post-processing resize")
     edit_parser.add_argument("--output", "-o", help="Output file path (default: current directory)")
     edit_parser.add_argument("--no-fallback", action="store_true", help="Disable automatic model fallback on server errors")
     edit_parser.add_argument("--retries", type=int, default=1, help="Retry count per model on 503 before fallback (default: 1)")

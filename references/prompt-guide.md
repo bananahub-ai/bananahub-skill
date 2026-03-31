@@ -243,9 +243,17 @@ Write in **natural descriptive sentences**, not comma-separated tag lists. Gemin
 ### gemini-3-pro-image-preview (Nano Banana Pro)
 - **Best for**: high quality, rich detail, complex scenes, text rendering
 - **Aspect ratios**: 1:1, 16:9, 9:16, 4:3, 3:4, 3:2, 2:3
+- **Image sizes**: 1K, 2K, 4K
 - **Recommendation**: default model
 
-### gemini-2.0-flash-preview-image-generation (Nano Banana Flash)
+### gemini-3.1-flash-image-preview (Nano Banana 2)
+- **Best for**: strong quality-speed balance, more capable iterative generation, better text rendering than older Flash models
+- **Aspect ratios**: 1:1, 16:9, 9:16, 4:3, 3:4, 3:2, 2:3
+- **Image sizes**: 1K, 2K, 4K
+- **Trade-off**: usually faster than Pro while staying close on many everyday tasks
+
+### gemini-2.5-flash-image (Nano Banana)
 - **Best for**: fast generation, simple scenes, rapid iteration
 - **Aspect ratios**: 1:1, 16:9, 9:16, 4:3, 3:4
-- **Trade-off**: faster but slightly lower quality than Pro
+- **Image sizes**: 1K, 2K, 4K
+- **Trade-off**: faster but lower quality than Pro and 3.1 Flash on complex text/layout tasks

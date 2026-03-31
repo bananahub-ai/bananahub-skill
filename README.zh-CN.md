@@ -78,9 +78,11 @@ claude skill install https://github.com/nano-banana-hub/nanobanana
 |---|---|
 | `--direct` | Skill 层直出模式：跳过确认，但仍保持克制增强 |
 | `--raw` | Skill 层 Raw 模式：只翻译，不做优化 |
-| `--model <id>` | 指定模型（`gemini-3-pro-image-preview` 或 `gemini-2.0-flash-preview-image-generation`） |
+| `--model <id>` | 指定模型（`gemini-3-pro-image-preview`、`gemini-3.1-flash-image-preview` 或 `gemini-2.5-flash-image`） |
 | `--aspect <ratio>` | 宽高比，比如 `16:9`、`1:1`、`9:16` |
-| `--size <WxH>` | 输出尺寸，比如 `1024x1024` |
+| `--image-size <preset>` | 原生出图尺寸档位（`1K`、`2K`、`4K`） |
+| `--resize <WxH>` | 生成/编辑后的后处理缩放 |
+| `--size <value>` | 兼容旧参数：`1K/2K/4K` 表示原生出图尺寸，`WxH` 表示后处理缩放 |
 | `--output <path>` | 指定输出文件路径 |
 | `--input <path>` | 编辑命令的输入图片 |
 
@@ -96,8 +98,8 @@ claude skill install https://github.com/nano-banana-hub/nanobanana
 # Raw 模式：只翻译，不做额外整理
 /nanobanana 一个简单的红色圆圈 --raw
 
-# 指定宽高比和模型
-/nanobanana 山水画风格的桂林风景 --aspect 16:9 --model gemini-2.0-flash-preview-image-generation
+# 指定宽高比、模型和原生出图尺寸
+/nanobanana 山水画风格的桂林风景 --aspect 16:9 --model gemini-2.5-flash-image --image-size 2K
 
 # 贴纸 / 表情包
 /nanobanana 画一个开心的柴犬表情包
@@ -114,8 +116,8 @@ claude skill install https://github.com/nano-banana-hub/nanobanana
 # 编辑现有图片
 /nanobanana edit 把背景换成海滩 --input photo.png
 
-# 编辑并指定输出文件
-/nanobanana edit 添加一顶圣诞帽 --input avatar.png --output avatar_xmas.png
+# 先原生 2K 出图，再缩放到交付尺寸
+/nanobanana edit 添加一顶圣诞帽 --input avatar.png --image-size 2K --resize 1024x1024 --output avatar_xmas.png
 ```
 
 ## 模板
@@ -178,6 +180,9 @@ claude skill install https://github.com/nano-banana-hub/nanobanana
 | `info-diagram` | prompt | 信息图 / 流程图 | diagram |
 | `minimal-wallpaper` | prompt | 极简手机壁纸 | minimal |
 | `consistent-character-storyboard` | workflow | 角色一致性分镜工作流 | general |
+| `repo-explainer-diagram` | workflow | 代码库讲解图工作流 | diagram |
+| `readme-launch-visual` | workflow | README 启动视觉工作流 | text-heavy |
+| `asset-style-consistency-pack` | workflow | 本地素材风格统一工作流 | general |
 
 ### 安装更多模板（BananaHub）
 
@@ -229,7 +234,10 @@ npx bananahub add <username>/<repo>
 | 模型 | 别名 | 适合场景 |
 |---|---|---|
 | `gemini-3-pro-image-preview` | Nano Banana Pro（默认） | 质量优先、复杂场景、文字渲染 |
-| `gemini-2.0-flash-preview-image-generation` | Nano Banana Flash | 速度优先、快速试稿 |
+| `gemini-3.1-flash-image-preview` | Nano Banana 2 | 质量和速度更均衡，多轮迭代和文字渲染能力更强 |
+| `gemini-2.5-flash-image` | Nano Banana | 速度优先、快速试稿 |
+
+`gemini-2.0-flash-preview-image-generation` 仍保留为兼容旧环境的 legacy fallback，但不再是主要推荐的 Flash 模型。
 
 ## 项目结构
 

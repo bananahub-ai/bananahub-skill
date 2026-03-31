@@ -77,9 +77,11 @@ This will:
 |---|---|
 | `--direct` | Skill-layer mode: skip confirmations, but still keep enhancement conservative |
 | `--raw` | Skill-layer mode: translate only, no optimization |
-| `--model <id>` | Specify model (`gemini-3-pro-image-preview` or `gemini-2.0-flash-preview-image-generation`) |
+| `--model <id>` | Specify model (`gemini-3-pro-image-preview`, `gemini-3.1-flash-image-preview`, or `gemini-2.5-flash-image`) |
 | `--aspect <ratio>` | Aspect ratio (e.g. `16:9`, `1:1`, `9:16`) |
-| `--size <WxH>` | Output dimensions (e.g. `1024x1024`) |
+| `--image-size <preset>` | Native image-size preset (`1K`, `2K`, `4K`) |
+| `--resize <WxH>` | Post-process resize after generation/edit |
+| `--size <value>` | Legacy compatibility flag: `1K/2K/4K` means native image size, `WxH` means post-process resize |
 | `--output <path>` | Custom output file path |
 | `--input <path>` | Source image for edit commands |
 
@@ -95,8 +97,8 @@ This will:
 # Raw mode — translate only, no optimization
 /nanobanana 一个简单的红色圆圈 --raw
 
-# Specify aspect ratio and model
-/nanobanana 山水画风格的桂林风景 --aspect 16:9 --model gemini-2.0-flash-preview-image-generation
+# Specify aspect ratio, model, and native image size
+/nanobanana 山水画风格的桂林风景 --aspect 16:9 --model gemini-2.5-flash-image --image-size 2K
 
 # Sticker / emoji
 /nanobanana 画一个开心的柴犬表情包
@@ -113,8 +115,8 @@ This will:
 # Edit an existing image
 /nanobanana edit 把背景换成海滩 --input photo.png
 
-# Edit with custom output path
-/nanobanana edit 添加一顶圣诞帽 --input avatar.png --output avatar_xmas.png
+# Edit with native 2K output, then resize for delivery
+/nanobanana edit 添加一顶圣诞帽 --input avatar.png --image-size 2K --resize 1024x1024 --output avatar_xmas.png
 ```
 
 ## Templates
@@ -177,6 +179,9 @@ Typical flow:
 | `info-diagram` | prompt | 信息图/流程图 | diagram |
 | `minimal-wallpaper` | prompt | 极简手机壁纸 | minimal |
 | `consistent-character-storyboard` | workflow | 角色一致性分镜工作流 | general |
+| `repo-explainer-diagram` | workflow | 代码库讲解图工作流 | diagram |
+| `readme-launch-visual` | workflow | README 启动视觉工作流 | text-heavy |
+| `asset-style-consistency-pack` | workflow | 本地素材风格统一工作流 | general |
 
 ### Installing More Templates (BananaHub)
 
@@ -228,7 +233,10 @@ User input (Chinese)
 | Model | Alias | Best For |
 |---|---|---|
 | `gemini-3-pro-image-preview` | Nano Banana Pro (default) | High quality, complex scenes, text rendering |
-| `gemini-2.0-flash-preview-image-generation` | Nano Banana Flash | Fast generation, rapid iteration |
+| `gemini-3.1-flash-image-preview` | Nano Banana 2 | Better quality-speed balance, stronger iteration and text rendering than older Flash models |
+| `gemini-2.5-flash-image` | Nano Banana | Fast generation, rapid iteration |
+
+`gemini-2.0-flash-preview-image-generation` remains as a legacy fallback for older setups, but it is no longer the primary Flash recommendation.
 
 ## Project Structure
 

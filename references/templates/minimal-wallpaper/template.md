@@ -14,7 +14,7 @@ models:
   - name: gemini-3-pro-image-preview
     tested: false
     quality: expected-best
-  - name: gemini-2.0-flash-preview-image-generation
+  - name: gemini-2.5-flash-image
     tested: false
     quality: unknown
 aspect: "9:16"

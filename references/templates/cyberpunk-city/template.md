@@ -14,7 +14,7 @@ models:
   - name: gemini-3-pro-image-preview
     tested: false
     quality: expected-best
-  - name: gemini-2.0-flash-preview-image-generation
+  - name: gemini-2.5-flash-image
     tested: false
     quality: unknown
 aspect: "16:9"
@@ -62,7 +62,7 @@ The user description replaces relevant variables while keeping the template stru
 
 **With flags**:
 ```
-/nanobanana use cyberpunk-city 上海外滩未来版 --model gemini-2.0-flash-preview-image-generation --aspect 9:16
+/nanobanana use cyberpunk-city 上海外滩未来版 --model gemini-2.5-flash-image --aspect 9:16
 ```
 
 ## Tips
