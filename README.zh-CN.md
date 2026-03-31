@@ -10,7 +10,7 @@ Nano Banana 不只是一个 prompt 优化器，它更像是 Claude Code 里的 N
 
 - **Agent-native 交互**：优化、出图、编辑、套模板、继续迭代，都在同一段对话里完成
 - **渐进式披露引导**：低风险整理默认静默完成，只有在歧义会明显影响结果时才追问，命中高匹配模板时才提示切换
-- **可安装的模板生态**：常见任务由内置模板覆盖，额外能力通过 BananaHub 按需安装，不把基础 skill 做成一个大杂烩
+- **可安装的模板生态**：常见任务由内置模板覆盖，额外能力通过 BananaHub 按需安装；模板既可以是单步 prompt，也可以是多步 workflow，不把基础 skill 做成一个大杂烩
 
 ## 主要能力
 
@@ -120,17 +120,17 @@ claude skill install https://github.com/nano-banana-hub/nanobanana
 
 ## 模板
 
-内置模板是一组已经整理好的 prompt 模块，带可替换变量。你可以直接用默认值，也可以只覆盖关心的变量；如果某类任务值得反复复用，就去 BananaHub 安装对应模块，而不是把基础 skill 塞得越来越重。
+内置模板是一组可复用的 agent 模块。有些模板是 `prompt` 类型，用来组装单步 prompt；有些模板是 `workflow` 类型，用来加载渐进式披露的多步 SOP。你可以直接用默认值，也可以只覆盖关心的部分；如果某类任务值得反复复用，就去 BananaHub 安装对应模块，而不是把基础 skill 塞得越来越重。
 
 ### 模板相关命令
 
 | 命令 | 说明 |
 |---|---|
 | `/nanobanana templates` | 列出全部模板 |
-| `/nanobanana templates <name>` | 查看模板详情、变量和使用建议 |
-| `/nanobanana use <name>` | 直接用模板默认值生成 |
-| `/nanobanana use <name> <描述>` | 用自定义描述覆盖变量后生成 |
-| `/nanobanana create-template` | 打开 AI 引导式模板创建向导 |
+| `/nanobanana templates <name>` | 按模板类型查看详情 |
+| `/nanobanana use <name>` | 激活 prompt 模板或启动 workflow 模板 |
+| `/nanobanana use <name> <描述>` | 带自定义变量或上下文激活模板 |
+| `/nanobanana create-template` | 打开 AI 引导式 prompt/workflow 模板创建向导 |
 
 ### 模板示例
 
@@ -141,25 +141,43 @@ claude skill install https://github.com/nano-banana-hub/nanobanana
 # 查看模板详情
 /nanobanana templates cyberpunk-city
 
-# 直接用默认值生成
+# 直接用 prompt 模板默认值生成
 /nanobanana use cyberpunk-city
 
-# 用补充描述覆盖模板变量
+# 用补充描述覆盖 prompt 模板变量
 /nanobanana use cyberpunk-city 东京新宿街头，紫色和金色霓虹
+
+# 启动 workflow 模板
+/nanobanana use consistent-character-storyboard
 
 # 配合参数使用
 /nanobanana use cyberpunk-city 上海外滩未来版 --aspect 9:16
 ```
 
+### Workflow 样章
+
+`consistent-character-storyboard` 是内置的多步 workflow 模板示例，它的目标不是一键出最终图，而是做“角色一致性分镜探索”。
+
+常见用法：
+
+```bash
+# 第一步：先做或确认一张母图
+/nanobanana 一个可爱的暹罗猫IP，奶油色毛发，深棕色重点色，蓝眼睛，戴青绿色小围巾和金色铃铛
+
+# 第二步：启动 workflow 模板
+/nanobanana use consistent-character-storyboard
+```
+
 ### 内置模板
 
-| ID | 标题 | 类型 |
-|---|---|---|
-| `cyberpunk-city` | 赛博朋克城市夜景 | photo |
-| `cute-sticker` | Q版贴纸表情包 | sticker |
-| `product-white-bg` | 电商白底产品图 | product |
-| `info-diagram` | 信息图 / 流程图 | diagram |
-| `minimal-wallpaper` | 极简手机壁纸 | minimal |
+| ID | 模板类型 | 标题 | Profile |
+|---|---|---|---|
+| `cyberpunk-city` | prompt | 赛博朋克城市夜景 | photo |
+| `cute-sticker` | prompt | Q版贴纸表情包 | sticker |
+| `product-white-bg` | prompt | 电商白底产品图 | product |
+| `info-diagram` | prompt | 信息图 / 流程图 | diagram |
+| `minimal-wallpaper` | prompt | 极简手机壁纸 | minimal |
+| `consistent-character-storyboard` | workflow | 角色一致性分镜工作流 | general |
 
 ### 安装更多模板（BananaHub）
 
@@ -175,9 +193,9 @@ npx bananahub add <username>/<repo>
 
 ### 自己创建模板
 
-运行 `/nanobanana create-template` 会进入一个 4 阶段向导：先确认意图，再整理 prompt 草稿，接着生成样例，最后组装成模板文件。最终产物是一个可直接发到 GitHub，或者提交到 BananaHub 的 `template.md`。
+运行 `/nanobanana create-template` 会进入一个引导式向导：先判断是 `prompt` 还是 `workflow` 模板，再整理内容草稿，必要时生成样例，最后组装成模板文件。最终产物是一个可直接发到 GitHub，或者提交到 BananaHub 的 `template.md`。
 
-模板格式使用 `{{变量名|默认值}}` 占位符，并配合变量表和 tips 区块。完整规范见 `references/template-format-spec.md`。
+`prompt` 模板使用 `{{变量名|默认值}}` 占位符、变量表和 tips 区块；`workflow` 模板使用 `Goal`、`Inputs`、`Steps`、`Prompt Blocks` 这类多步结构。完整规范见 `references/template-format-spec.md`。
 
 发布前检查：
 

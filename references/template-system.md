@@ -1,6 +1,11 @@
 # Template System
 
-Nanobanana includes a prompt template ecosystem — curated, reusable prompt recipes with variable slots, sample images, and model annotations. Templates support progressive disclosure: auto-suggested when context matches, or explicitly invoked.
+Nanobanana templates are reusable agent modules. They are not limited to single prompts. A template can be either:
+
+- `type: prompt` — a reusable prompt recipe with variables
+- `type: workflow` — a progressive-disclosure playbook that guides the agent through multiple steps
+
+Templates support progressive disclosure: they can be auto-suggested when context matches, or explicitly activated by the user.
 
 ## Template Search Paths
 
@@ -13,68 +18,90 @@ Each path contains template directories and an auto-generated `.registry.json` i
 
 ## Template File Format
 
-Templates are agent-consumed documents. They follow a two-tier progressive disclosure model:
+Templates are agent-consumed `template.md` documents with two layers:
 
-```
+```text
 Tier 1 — Frontmatter (always parsed for listing/matching, ~50 tokens)
-  id, title, profile, tags, models, aspect, difficulty
+  id, type, title, profile, tags, models, aspect, difficulty
   → used by: templates list, auto-matching, BananaHub catalog
 
-Tier 2 — Body (loaded only when template is activated via `use`, ~200-500 tokens)
-  Prompt Template, Variables table, Tips
-  → used by: prompt assembly, variable resolution
+Tier 2 — Body (loaded only when template is activated via `use`, ~200-600 tokens)
+  prompt sections OR workflow sections
+  → used by: prompt assembly, guided execution, step-by-step activation
 ```
 
-### Frontmatter (Tier 1 — Discovery)
+## Frontmatter (Tier 1 — Discovery)
 
 Required fields for listing and auto-matching:
 
 | Field | Purpose | Example |
 |-------|---------|---------|
 | `id` | Unique identifier (lowercase, hyphens, 3-50 chars) | `cyberpunk-city` |
-| `title` | Chinese display title for listing | `赛博朋克城市夜景` |
-| `title_en` | English display title | `Cyberpunk City Nightscape` |
+| `type` | Template kind: `prompt` or `workflow` | `workflow` |
+| `title` | Chinese display title for listing | `角色一致性分镜工作流` |
+| `title_en` | English display title | `Consistent Character Storyboard Workflow` |
 | `author` | GitHub username | `nanobanana` |
 | `version` | Semver | `1.0.0` |
-| `profile` | Target enhancement profile | `photo` |
-| `tags` | Bilingual keywords for search + auto-matching | `[赛博朋克, 城市, cyberpunk, neon]` |
+| `profile` | Target enhancement profile or grouping bucket | `photo` |
+| `tags` | Bilingual keywords for search + auto-matching | `[分镜, storyboard, consistency]` |
 | `models` | Tested models with quality rating (best/good/ok) | see below |
-| `aspect` | Recommended aspect ratio | `"16:9"` |
+| `aspect` | Recommended aspect ratio | `"1:1"` |
 | `difficulty` | Target user level | `beginner` / `intermediate` / `advanced` |
-| `samples` | Sample image metadata (file, model, prompt) | see below |
-| `created` / `updated` | ISO dates | `2026-03-24` |
+| `samples` | Optional sample image metadata (file, model, prompt) | see below |
+| `created` / `updated` | ISO dates | `2026-03-31` |
 
-### Body (Tier 2 — Activation)
+Notes:
 
-Body sections must follow this exact order for consistent agent parsing:
+- Missing `type` should be treated as `prompt` for backward compatibility.
+- `workflow` templates may omit sample images during early iteration, but published workflows should still include representative samples when possible.
+
+## Body (Tier 2 — Activation)
+
+The body structure depends on `type`.
+
+### `type: prompt`
+
+Body sections must follow this exact order:
 
 1. **`## Prompt Template`** — the core prompt with `{{variable|default}}` slots inside a code block
 2. **`## Variables`** — pipe table mapping each variable to its default and description
-3. **`## Tips`** — bullet list of concrete, actionable tips (no vague advice)
+3. **`## Tips`** — bullet list of concrete, actionable tips
 
-### Body Authoring Constraints
+### `type: workflow`
 
-These rules ensure templates are effective for both AI agents and Gemini image generation:
+Body sections should follow this exact order:
+
+1. **`## Goal`** — what outcome this workflow helps the agent produce
+2. **`## When To Use`** — scenarios where this workflow is a strong fit
+3. **`## Inputs`** — the required or recommended inputs before execution
+4. **`## Steps`** — numbered execution steps
+5. **`## Prompt Blocks`** — reusable prompt fragments the agent can apply during specific steps
+6. **`## Success Checks`** — how to tell the workflow output is good enough to stop or continue
+
+## Body Authoring Constraints
+
+These rules keep templates compact and agent-friendly:
 
 | Rule | Rationale |
 |------|-----------|
-| **Total body < 100 lines** | Keeps Tier 2 token cost low when template is activated |
-| **Prompt Template < 80 words** | Gemini quality degrades with overly long prompts; 30-80 words is optimal |
-| **3-6 variables per template** | Too few = not customizable; too many = confusing for beginners |
-| **Variables use snake_case** | Consistent naming for agent parsing |
-| **Each `{{var}}` has a default** | Templates must work with zero user input |
-| **Defaults are complete sentences/phrases** | Gemini understands narrative language better than keyword fragments |
-| **No "8K", "ultra-detailed", "masterpiece"** | These are SD/MJ quality tags; they don't improve Gemini output |
-| **Use "photorealistic" for photo profile** | Google's official style anchor for realistic images |
-| **Tips are specific and testable** | "Use deep focus for cityscapes" not "experiment with different settings" |
-| **Tags include both Chinese and English** | Enables auto-matching from Chinese user input AND English search |
+| **Total body < 140 lines** | Keeps activation cost low |
+| **Prompt templates should keep the main prompt < 80 words** | Gemini quality degrades with overly long single-shot prompts |
+| **Workflow templates should prefer 4-8 steps** | Too many steps become vague and hard to execute |
+| **Variables use snake_case** | Consistent parsing when variables are used |
+| **Defaults are complete phrases/sentences** | Gemini understands narrative language better than keyword fragments |
+| **No "8K", "ultra-detailed", "masterpiece"** | SD/MJ quality tags do not improve Gemini output |
+| **Tips and checks are specific and testable** | Avoid vague advice |
+| **Tags include both Chinese and English** | Enables auto-matching from bilingual user input |
 
-### Variable Syntax
+## Variable Syntax
 
 `{{name|default_value}}` — double braces, snake_case name, pipe separator, fallback value.
 
 - `{{scene|rain-soaked alley}}` — with default
 - `{{subject}}` — without default (must be provided by user)
+
+Prompt templates use this syntax directly in `## Prompt Template`.
+Workflow templates may also use it inside `## Prompt Blocks`, but it is optional.
 
 Full format spec: `references/template-format-spec.md`
 
@@ -82,178 +109,132 @@ Full format spec: `references/template-format-spec.md`
 
 1. Scan both template search paths for `.registry.json` (or rebuild by scanning directories)
 2. Merge results (user-installed wins on ID conflict)
-3. Group by `profile`, display:
+3. Group by `profile`
+4. Show both `type` and difficulty in the listing
 
-```
+Example:
+
+```text
 📦 可用模板 (N 个)
 
 📷 写实摄影 (photo)
-  cyberpunk-city        赛博朋克城市夜景        ⭐ beginner
+  cyberpunk-city                  [prompt]    ⭐ beginner
 
-😀 贴纸表情包 (sticker)
-  cute-sticker          Q版贴纸表情包           ⭐ beginner
-
-🛍️ 产品摄影 (product)
-  product-white-bg      电商白底产品图          ⭐ beginner
-
-📊 图表信息图 (diagram)
-  info-diagram          信息图/流程图           ⭐⭐ intermediate
-
-🎨 极简留白 (minimal)
-  minimal-wallpaper     极简手机壁纸            ⭐ beginner
+📋 通用工作流 (general)
+  consistent-character-storyboard [workflow]  ⭐⭐ intermediate
 
 用法: /nanobanana templates <name>  查看详情
-      /nanobanana use <name> [描述]  使用模板生成
+      /nanobanana use <name> [描述]  激活模板
       /nanobanana create-template    创建新模板
 安装更多: npx bananahub search <关键词>
 ```
-
-Profile icon mapping: photo→📷, illustration→🎨, diagram→📊, text-heavy→📝, minimal→🎨, sticker→😀, 3d→🧊, product→🛍️, concept-art→🖼️, general→📋
 
 ## `templates <name>` — Show Template Details
 
 1. Search both template paths for `<name>/template.md`
 2. Parse frontmatter and body
-3. Display: title, description, prompt template with variable highlights, variable table, supported models with quality ratings, recommended aspect ratio, tips
-4. If `samples` entries exist in frontmatter, show sample image paths (user can view with Read tool)
-5. End with usage hint: `/nanobanana use <name>` or `/nanobanana use <name> <自定义描述>`
+3. Display title, type, models, aspect ratio, and tags
+4. If `type: prompt`, show the prompt template, variables table, and tips
+5. If `type: workflow`, show the goal, inputs, steps, prompt blocks, and success checks
+6. If `samples` entries exist in frontmatter, show sample image paths
+7. End with usage hint: `/nanobanana use <name>`
 
-## `use <template-id> [自定义描述]` — Generate from Template
+## `use <template-id> [自定义描述]` — Activate Template
 
 1. **Locate template**: search both template paths for `<id>/template.md`
-2. **Read template**: parse frontmatter + Prompt Template section
-3. **Extract variables**: find all `{{variable|default}}` slots
-4. **Apply user input**:
-   - If no user description → use all default values, filling each `{{var|default}}` with `default`
-   - If user provides a description → analyze intent, map to relevant variables, replace matching ones while keeping unmentioned at defaults
-   - Apply smart translation (Phase 1 rules) to user-provided Chinese descriptions before inserting
-5. **Apply template parameters**: use template's `aspect` and first `quality: best` model as defaults (unless user provides `--aspect` or `--model` flags)
-6. **Generate**: follow standard Image Generation Flow — build command, execute script, display result
-7. **Display template attribution**:
-   ```
-   ✅ 图片已生成 (模板: cyberpunk-city)
-   📁 路径: [file_path]
-   🔧 模型: [model] | 宽高比: [ratio] | 尺寸: [WxH]
-   📝 使用的 Prompt: [final assembled prompt]
-   🎨 模板: cyberpunk-city v1.0.0 by author-name
-   ```
+2. **Read frontmatter** and determine `type`
+3. **Branch by type**:
+
+### Activation for `type: prompt`
+
+1. Read `## Prompt Template`
+2. Extract variables from `{{variable|default}}`
+3. Apply user input:
+   - If no description is provided, use defaults
+   - If a description is provided, map user intent to matching variables and leave the rest unchanged
+4. Apply template defaults for `aspect` and best-tested `model` unless the user overrides them
+5. Generate using the normal image flow
+6. Display template attribution
+
+### Activation for `type: workflow`
+
+1. Read `## Goal`, `## Inputs`, `## Steps`, and `## Prompt Blocks`
+2. Treat the workflow as execution context, not as a single prompt
+3. Ask only for missing blockers from `## Inputs`
+4. Execute one step at a time
+5. Use `generate` or `edit` only when a workflow step calls for it
+6. Preserve state from the last accepted step instead of restarting from scratch
+7. Stop after each meaningful milestone if the user wants to review before continuing
+
+For workflow activation, `use <template-id>` means "start or continue this guided workflow", not "immediately fire one prompt".
 
 ## Template Variable Resolution
 
-When matching user descriptions to template variables:
+When matching user descriptions to prompt-template variables:
 
 1. **Direct mapping**: if user mentions a concept that clearly maps to a variable, replace it
-   - User: "东京街头" → `scene` = "Tokyo street with traditional izakaya signs"
-   - User: "紫色和金色" → `colors` = "purple and gold"
-2. **Partial override**: only replace variables the user mentioned; keep others at defaults
-3. **Full override**: if user provides a complete scene description that doesn't fit variable slots, treat the assembled prompt as a starting point and blend user intent
-4. **Conflict resolution**: user's explicit choices always override template defaults
+2. **Partial override**: only replace the variables the user mentioned
+3. **Full override**: if the user provides a scene that does not map cleanly to variables, treat the template as a starting scaffold rather than a hard wrapper
+4. **Conflict resolution**: the user's explicit choices override template defaults
+
+For workflow templates, variable resolution is optional. Prefer using the workflow steps and prompt blocks directly unless a block clearly defines variables.
 
 ## `create-template` — AI-Guided Template Creation
 
-When the user invokes `create-template`, guide them through creating a new template in 4 phases.
+When the user invokes `create-template`, guide them through creating either a prompt template or a workflow template.
 
-**The output template.md MUST conform to the Body Authoring Constraints above.** Specifically:
-- Body < 100 lines total
-- Prompt Template < 80 words (30-80 word sweet spot for Gemini)
-- 3-6 variables with snake_case names and complete-sentence defaults
-- No SD/MJ quality tags ("8K", "ultra-detailed", "masterpiece")
-- Use narrative sentence structure, not comma-separated keyword lists
-- Tips must be specific and testable, not vague
-- Tags bilingual (Chinese + English) with ≥ 3 tags
+### Phase 1: Choose Template Type
 
-### Phase 1: Intent Gathering
+Ask early:
 
-Ask the user (combine questions when possible):
-1. "这个模板用来生成什么类型的图片？" → determine profile
-2. "描述一下你想要的图片效果" → extract core prompt structure
-3. "哪些部分应该是可以自定义的？" → identify variable slots
-4. "目标用户是谁？新手还是有经验的？" → difficulty level
+1. "你要做的是单步 prompt 模板，还是多步 workflow 模板？"
+2. If unclear, infer from the task:
+   - Stable reusable shot/prompt structure → `prompt`
+   - Guided SOP, multi-step iteration, stateful process → `workflow`
 
-If the user provides a description upfront (e.g., `create-template 水墨山水画`), extract as much as possible before asking follow-ups.
+### Phase 2: Intent Gathering
 
-### Phase 2: Prompt Drafting
+Ask the user:
 
-1. Draft an English prompt template based on user intent
-2. Insert `{{variable|default}}` for customizable parts
-3. Present to user for review:
-   ```
-   📝 Prompt 模板草稿:
+1. "这个模板主要解决什么问题？" → determine goal
+2. "更像单步生成还是多步流程？" → confirm type if still unclear
+3. "适用于什么图片类型？" → determine profile
+4. "哪些输入必须提供，哪些可以默认？" → identify variables or workflow inputs
+5. "目标用户是谁？新手还是有经验的？" → difficulty
 
-   Traditional Chinese ink wash painting of {{subject|misty mountains with pine trees}},
-   {{style|sumi-e brushwork with wet-on-wet technique}},
-   {{atmosphere|ethereal morning fog rising from valleys}},
-   minimalist elegance, rice paper texture
+### Phase 3: Draft the Body
 
-   📊 变量:
-   | 变量 | 默认值 | 说明 |
-   |------|--------|------|
-   | subject | misty mountains with pine trees | 主体 |
-   | style | sumi-e brushwork | 画法 |
-   | atmosphere | ethereal morning fog | 意境 |
+For `type: prompt`:
 
-   满意吗？可以修改任何部分。
-   ```
-4. Iterate until user approves
+1. Draft a compact English prompt template
+2. Insert `{{variable|default}}` slots
+3. Add variables and tips
 
-### Phase 3: Sample Generation
+For `type: workflow`:
 
-1. Generate 2-3 images using the drafted template with default values
-2. Use different models if possible (Pro + Flash) to test compatibility
-3. Present results, let user pick best samples
-4. Save each chosen sample to `samples/` using a model-explicit name such as `sample-3-pro-01.png` or `sample-3.1-flash-01.png`
-5. Record generation metadata (file, model, prompt, aspect) for each sample in frontmatter
-6. Keep sample-to-prompt mapping exact: if one image came from the default prompt, do not present it as proof of a different custom example
+1. Draft the workflow goal and when-to-use section
+2. List the required inputs
+3. Write the numbered steps
+4. Add prompt blocks for the steps that call Gemini
+5. Add success checks
 
-### Phase 4: Assembly & Output
+### Phase 4: Sample Generation and Assembly
 
-1. Ask for template metadata:
-   - `id` (suggest based on title, user confirms)
-   - `title` / `title_en`
-   - `tags` (suggest bilingual tags based on content)
-2. Assemble complete `template.md` with frontmatter + all sections
-3. Write a `README.md` that includes:
-   - `## Install`
-   - `## Verified Models`
-   - `## Supported Models`
-   - `## Sample Outputs` with file / model / prompt-or-variant mapping
-4. Validate: check required fields, variable syntax consistency, sample metadata, sample naming, and README model coverage
-5. Write to output directory (default: current working directory `<id>/`)
-6. Provide publishing instructions:
-   ```
-   ✅ 模板已创建: ink-landscape/
-   ├── template.md
-   ├── README.md
-   └── samples/
-       ├── sample-3-pro-01.jpg
-       └── sample-3.1-flash-01.jpg
+1. Generate 2-3 representative outputs when practical
+2. Save chosen samples with model-explicit names such as `sample-3-pro-01.png`
+3. Record sample metadata in frontmatter
+4. Ask for `id`, `title`, `title_en`, and bilingual `tags`
+5. Assemble `template.md` and `README.md`
+6. Validate the result against the type-aware template rules
 
-   下一步:
-   1. 检查并微调 template.md
-   2. 检查 README 里的 verified/supported models 和样图映射
-   3. 创建 GitHub 仓库并推送
-   4. 其他用户安装: npx bananahub add <username>/<repo>
-   5. 提交到 BananaHub: https://bananahub.github.io/submit
-   ```
+## Template Validation Rules
 
-### Template Validation Rules
-
-| Check | Rule | On Fail |
-|-------|------|---------|
-| ID format | lowercase, hyphens, 3-50 chars | Auto-fix or ask |
-| Title | Non-empty Chinese title + English title | Ask |
-| Profile | Must be valid profile name | Ask to choose |
-| Body length | Total body < 100 lines | Trim tips or simplify prompt |
-| Prompt length | Prompt Template < 80 words | Shorten; Gemini degrades with long prompts |
-| Variable count | 3-6 variables with snake_case names | Merge or split variables |
-| Variable defaults | Every `{{var\|default}}` has a complete-sentence default | Fill in defaults |
-| Variables table | Each `{{var}}` in prompt has matching table entry | Auto-generate |
-| No quality tags | No "8K", "ultra-detailed", "masterpiece", "best quality" | Remove; these are SD/MJ artifacts |
-| Narrative structure | Prompt uses sentences, not comma-separated keywords | Rewrite as natural language |
-| Samples | ≥ 1 sample image exists | Generate if missing |
-| Sample metadata | Each sample has `model` and `prompt` in frontmatter | Auto-fill from generation |
-| Sample naming | Each sample filename includes model shorthand, e.g. `sample-3-pro-01.png` | Rename files |
-| README model matrix | README has Verified Models + Supported Models | Generate or patch README |
-| README sample mapping | README ties each sample file to its model and prompt/variant | Generate or patch README |
-| Tags | ≥ 3 tags, mix of Chinese + English | Suggest bilingual tags |
-| Tips | Each tip is specific and testable (no vague advice) | Rewrite with concrete guidance |
+| Check | `prompt` | `workflow` |
+|-------|----------|------------|
+| `type` | `prompt` or omitted | `workflow` |
+| Core sections | `Prompt Template`, `Variables`, `Tips` | `Goal`, `Inputs`, `Steps`, `Prompt Blocks` |
+| Variables | Recommended, usually 3-6 | Optional |
+| Prompt length | Main prompt < 80 words | Prompt blocks should stay concise |
+| Steps | Optional | Recommended numbered list |
+| Samples | Strongly recommended | Recommended but may be omitted during early iteration |
+| README | Recommended for publishing | Recommended for publishing |

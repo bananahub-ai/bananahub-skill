@@ -1,5 +1,6 @@
 ---
 id: info-diagram
+type: prompt
 title: 信息图/流程图
 title_en: Infographic & Flowchart
 author: nanobanana

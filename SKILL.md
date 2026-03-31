@@ -51,10 +51,10 @@ Route user input to the appropriate action based on arguments:
 | `optimize <描述>` | Optimize prompt only; display result without generating |
 | `generate <English prompt>` | Generate image directly with given English prompt (skip optimization) |
 | `models` | Run `python3 scripts/nanobanana.py models` to query image-capable models from API |
-| `templates` | Read `references/template-system.md`, then list all templates grouped by profile |
-| `templates <name>` | Read `references/template-system.md`, then show template details |
-| `use <template-id> [自定义描述]` | Read `references/template-system.md`, then generate using template |
-| `create-template [描述]` | Read `references/template-system.md`, then guide user through template creation |
+| `templates` | Read `references/template-system.md`, then list all templates grouped by profile and type |
+| `templates <name>` | Read `references/template-system.md`, parse frontmatter `type`, then show prompt-template or workflow-template details accordingly |
+| `use <template-id> [自定义描述]` | Read `references/template-system.md`, parse frontmatter `type`, then either generate from a prompt template or activate a workflow template |
+| `create-template [描述]` | Read `references/template-system.md`, determine whether the user needs a prompt or workflow template, then guide creation |
 
 Note:
 - `optimize`, `--direct`, and `--raw` are **skill-layer controls** interpreted by you before invoking the script
@@ -157,8 +157,11 @@ Multi-image use cases: style transfer, character consistency, multi-image blendi
 Read `references/template-system.md` for the full template system. Overview:
 
 - **Search paths**: built-in (`references/templates/`) + user-installed (`~/.config/nanobanana/templates/`)
-- **Format**: `template.md` with YAML frontmatter + `{{variable|default}}` prompt slots
-- **Commands**: `templates` (list), `templates <name>` (details), `use <id> [desc]` (generate), `create-template` (create)
+- **Format**: `template.md` with YAML frontmatter and `type: prompt | workflow`
+- **Prompt templates**: produce a reusable prompt with variables, then generate or edit
+- **Workflow templates**: act as progressive-disclosure context; load the workflow, ask only for missing blockers, and execute step-by-step with `generate` / `edit` primitives when needed
+- **Built-in workflow example**: `consistent-character-storyboard` for character-consistency storyboard exploration
+- **Commands**: `templates` (list), `templates <name>` (details), `use <id> [desc]` (activate), `create-template` (create)
 - **Auto-matching**: Phase 2.1 suggests matching templates during intent recognition (progressive disclosure)
 - **Install more**: `npx bananahub add <user/repo>`
 - **Publishing rule**: when creating templates, save samples as `sample-{model-short}-{nn}.png` and make README list verified models, supported models, and sample-to-prompt mappings

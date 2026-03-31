@@ -15,7 +15,7 @@ BananaHub is the distribution layer in the Nano Banana product matrix. The full 
 
 - **Skill runtime** — the agent-native `/nanobanana` interface for optimization, generation, editing, and iteration
 - **Optimization engine** — constraint extraction, conservative enhancement, progressive clarification, and profile-specific guidance
-- **Template system** — reusable prompt modules with metadata, variables, samples, and auto-matching
+- **Template system** — reusable prompt or workflow modules with metadata, samples, and auto-matching
 - **BananaHub distribution loop** — searchable gallery, install CLI, machine-readable catalog, and install/trending telemetry
 
 BananaHub is therefore not a giant prompt dump. It is a way to let reusable prompt structures travel as installable modules, without turning the base skill into a monolith.

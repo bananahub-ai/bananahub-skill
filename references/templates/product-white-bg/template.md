@@ -1,5 +1,6 @@
 ---
 id: product-white-bg
+type: prompt
 title: 电商白底产品图
 title_en: E-commerce Product on White
 author: nanobanana

@@ -1,5 +1,6 @@
 ---
 id: minimal-wallpaper
+type: prompt
 title: 极简手机壁纸
 title_en: Minimal Phone Wallpaper
 author: nanobanana

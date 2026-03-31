@@ -15,7 +15,7 @@ BananaHub 是 Nano Banana 产品矩阵里的分发层。完整产品目前可以
 
 - **Skill runtime**：agent-native 的 `/nanobanana` 交互入口，负责优化、生成、编辑和迭代
 - **Optimization engine**：负责约束提取、保守增强、渐进式澄清和按 profile 引导
-- **Template system**：把可复用 prompt 能力沉淀成带元数据、变量、样例和自动匹配能力的模块
+- **Template system**：把可复用的 prompt 或 workflow 能力沉淀成带元数据、样例和自动匹配能力的模块
 - **BananaHub distribution loop**：负责可搜索的画廊、安装 CLI、机器可读目录和安装 / 热度数据
 
 所以 BananaHub 不是一个巨大的 prompt 文本堆，而是让可复用 prompt 结构以“可安装模块”的方式流通，同时避免基础 skill 膨胀成一个大而全的单体。

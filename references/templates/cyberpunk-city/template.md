@@ -1,5 +1,6 @@
 ---
 id: cyberpunk-city
+type: prompt
 title: 赛博朋克城市夜景
 title_en: Cyberpunk City Nightscape
 author: nanobanana

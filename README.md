@@ -10,7 +10,7 @@ Nano Banana is not just a prompt optimizer. It is an agent-native image workflow
 
 - **Agent-native runtime** — optimization, generation, editing, template use, and iteration happen in the same conversation
 - **Progressive disclosure guidance** — the skill stays quiet on low-risk cleanup, asks only when ambiguity would materially change the result, and suggests templates only when there is a strong match
-- **Installable template ecosystem** — built-ins cover common jobs, while BananaHub lets users discover and install extra prompt modules without bloating the base skill
+- **Installable template ecosystem** — built-ins cover common jobs, while BananaHub lets users discover and install extra prompt or workflow modules without bloating the base skill
 
 ## What It Does
 
@@ -119,17 +119,17 @@ This will:
 
 ## Templates
 
-Built-in templates are curated prompt modules with variable slots. Use them directly, override only the pieces you care about, or install more from BananaHub when a repeatable job deserves its own module.
+Built-in templates are reusable agent modules. Some are `prompt` templates that assemble one reusable prompt. Others are `workflow` templates that load a guided multi-step playbook. Use them directly, override only the pieces you care about, or install more from BananaHub when a repeatable job deserves its own module.
 
 ### Template Commands
 
 | Command | Description |
 |---|---|
 | `/nanobanana templates` | List all available templates |
-| `/nanobanana templates <name>` | Show template details, variables, and tips |
-| `/nanobanana use <name>` | Generate using template defaults |
-| `/nanobanana use <name> <描述>` | Generate with custom variable overrides |
-| `/nanobanana create-template` | AI-guided template creation wizard |
+| `/nanobanana templates <name>` | Show template details based on its type |
+| `/nanobanana use <name>` | Activate a prompt template or start a workflow template |
+| `/nanobanana use <name> <描述>` | Activate with custom variable overrides or workflow context |
+| `/nanobanana create-template` | AI-guided prompt/workflow template creation wizard |
 
 ### Examples
 
@@ -140,25 +140,43 @@ Built-in templates are curated prompt modules with variable slots. Use them dire
 # Preview a template
 /nanobanana templates cyberpunk-city
 
-# Generate with defaults
+# Generate with prompt-template defaults
 /nanobanana use cyberpunk-city
 
-# Override variables with a description
+# Override prompt-template variables with a description
 /nanobanana use cyberpunk-city 东京新宿街头，紫色和金色霓虹
+
+# Start a workflow template
+/nanobanana use consistent-character-storyboard
 
 # Use with flags
 /nanobanana use cyberpunk-city 上海外滩未来版 --aspect 9:16
 ```
 
+### Workflow Spotlight
+
+`consistent-character-storyboard` is the built-in example of a multi-step workflow template. It is meant for character-consistency storyboard exploration rather than one-shot final art.
+
+Typical flow:
+
+```bash
+# Step 1: create or approve one master reference
+/nanobanana 一个可爱的暹罗猫IP，奶油色毛发，深棕色重点色，蓝眼睛，戴青绿色小围巾和金色铃铛
+
+# Step 2: start the workflow template
+/nanobanana use consistent-character-storyboard
+```
+
 ### Built-in Templates
 
-| ID | Title | Profile |
-|---|---|---|
-| `cyberpunk-city` | 赛博朋克城市夜景 | photo |
-| `cute-sticker` | Q版贴纸表情包 | sticker |
-| `product-white-bg` | 电商白底产品图 | product |
-| `info-diagram` | 信息图/流程图 | diagram |
-| `minimal-wallpaper` | 极简手机壁纸 | minimal |
+| ID | Type | Title | Profile |
+|---|---|---|---|
+| `cyberpunk-city` | prompt | 赛博朋克城市夜景 | photo |
+| `cute-sticker` | prompt | Q版贴纸表情包 | sticker |
+| `product-white-bg` | prompt | 电商白底产品图 | product |
+| `info-diagram` | prompt | 信息图/流程图 | diagram |
+| `minimal-wallpaper` | prompt | 极简手机壁纸 | minimal |
+| `consistent-character-storyboard` | workflow | 角色一致性分镜工作流 | general |
 
 ### Installing More Templates (BananaHub)
 
@@ -174,9 +192,9 @@ User-installed templates are stored in `~/.config/nanobanana/templates/` and tak
 
 ### Creating Your Own Template
 
-Run `/nanobanana create-template` for a guided 4-phase wizard: intent gathering → prompt drafting → sample generation → assembly. The wizard generates a `template.md` ready to publish on GitHub or submit to BananaHub.
+Run `/nanobanana create-template` for a guided wizard: first choose `prompt` or `workflow`, then gather intent, draft the body, generate samples when useful, and assemble the final `template.md`.
 
-Template format: `{{variable|default value}}` slots in the prompt, with a variables table and tips section. Full spec in `references/template-format-spec.md`.
+Prompt templates use `{{variable|default value}}` slots with a variables table and tips section. Workflow templates use sections such as `Goal`, `Inputs`, `Steps`, and `Prompt Blocks`. Full spec in `references/template-format-spec.md`.
 
 Publishing checklist:
 

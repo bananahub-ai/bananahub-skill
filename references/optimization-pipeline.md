@@ -124,11 +124,13 @@ After profile matching, check if any installed template closely matches the user
       适配度: ⭐⭐⭐ (3 个关键词命中)
 
    选择:
-   1. 使用模板 (基于验证过的 prompt 结构)
+   1. 激活模板
    2. 继续常规优化
    ```
    If user chooses template → switch to `use <template-id>` flow.
    If user chooses regular → continue normal Phase 3.
+   When the matched template has `type: prompt`, activation means assembling the prompt and generating.
+   When the matched template has `type: workflow`, activation means loading the workflow context and guiding the user step-by-step.
 5. **Direct mode** — auto-use best match if score ≥ 3, otherwise regular flow
 6. **Raw mode** — skip template matching entirely
 

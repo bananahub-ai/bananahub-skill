@@ -1,5 +1,6 @@
 ---
 id: cute-sticker
+type: prompt
 title: Q版贴纸表情包
 title_en: Cute Chibi Sticker Pack
 author: nanobanana
