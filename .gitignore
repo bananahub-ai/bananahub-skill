@@ -5,6 +5,7 @@
 __pycache__/
 *.pyc
 .env
+.omc/
 
 # Auto-generated template registry
 .registry.json
