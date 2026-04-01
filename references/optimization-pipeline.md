@@ -23,6 +23,12 @@ For edit requests, also extract `invariants`:
 - palette / material / outfit
 - anything the user said should stay the same
 
+When the request is a follow-up on an already accepted result, also extract:
+- `approved_baseline`: the exact accepted file or prompt state that becomes the only source of truth
+- `locked_invariants`: the exact silhouette, text, count, proportion, border, spacing, or layout properties that must remain unchanged
+- `allowed_delta`: the single change this round is allowed to make
+- `derivation_mode`: whether this is still a creative model task or a deterministic asset-derivation task
+
 If a hard constraint is critical but unclear, ask before generating in default mode. If the user did not provide a constraint, do not invent one.
 
 ## Phase 1: Base Optimization (always on, silent)
@@ -86,6 +92,13 @@ Translate descriptions into natural English, distinguishing two types of text:
   - diagram / sketchnote requests where layout choice changes reading order
   - photo / 3D / concept-art requests where lens, render finish, or mood would dominate the image
 - If the user does not answer, omit the high-impact detail rather than guessing
+
+### 6. Baseline-Lock Routing
+- When the user is iterating on an accepted image, treat that accepted file as the only baseline until a newer version is explicitly approved
+- Restate locked invariants explicitly in the final prompt instead of leaving them implicit in a reference image
+- Name the one allowed delta for the current round; if there are multiple requested changes, split them into separate rounds when practical
+- Prefer source-image editing over fresh generation once a baseline exists
+- If the request is a deterministic derivative such as invert, crop, export, add safe padding, or place an approved icon beside exact final text, prefer a local deterministic transform instead of asking the model to redraw the asset
 
 ## Phase 2: Intent Recognition
 
@@ -186,6 +199,7 @@ Before adding any enhancement, classify the subject into one of these categories
 - **Ambiguous terms are worse than no terms** — if a word could be misinterpreted (e.g., "optical eyes" on a robot → model renders human eyes), do not add it. Only use unambiguous descriptors.
 - **"Cute" ≠ anthropomorphic** — for non-humanoid subjects, express cuteness through: rounded shapes, bright/pastel colors, compact proportions, soft lighting, playful composition. NOT through adding faces, expressions, or chibi features.
 - **Less is more for known characters** — the model's built-in knowledge of famous characters is usually more accurate than our text descriptions. Trust it.
+- **A reference is not a lock by itself** — if exact consistency matters, write the keep-unchanged constraints explicitly instead of assuming the model will infer them
 
 ### Default Mode Confirmation Format
 
@@ -202,3 +216,10 @@ Before adding any enhancement, classify the subject into one of these categories
 ```
 
 If `general` was matched: skip enhancement confirmation, generate directly with the base-optimized result.
+
+## Iteration Discipline
+
+- Change one major variable at a time
+- Treat accepted outputs as approved baselines, not just loose inspiration
+- Use exact keep-unchanged language in follow-up edit prompts when silhouette, copy, spacing, or layout must stay fixed
+- Route deterministic derivatives away from the model when the desired result is a non-creative transform

@@ -99,7 +99,7 @@ No optimization. In-image text is still preserved in original language.
 
 Read `references/optimization-pipeline.md` for the full pipeline. Overview:
 
-1. **Phase 0**: Extract hard constraints (exact_text, must_keep, must_avoid, style_lock)
+1. **Phase 0**: Extract hard constraints (exact_text, must_keep, must_avoid, style_lock, approved_baseline, allowed_delta when relevant)
 2. **Phase 1**: Base optimization — format correction, smart translation, structuring, conservative guardrail
 3. **Phase 2**: Intent recognition — match to one of 10 profiles via keyword table
 4. **Phase 2.1**: Template auto-matching — suggest matching templates (progressive disclosure)
@@ -130,13 +130,15 @@ Read `references/optimization-pipeline.md` for the full pipeline. Overview:
 1. **Validate input**: confirm `--input` image path exists; validate `--ref` images
    Reject more than 13 reference images or more than 14 total images.
 2. **Extract invariants**: what must remain unchanged in the source image
-3. **Optimize edit prompt**: run Phase 1 only (skip Phase 2/3); keep conservative, isolate the delta
-4. **Build command**:
+3. **Lock the baseline when applicable**: if the source image is an accepted result, treat it as the only source of truth for later rounds
+4. **Name the allowed delta**: isolate the one change this round is allowed to make
+5. **Optimize edit prompt**: run Phase 1 only (skip Phase 2/3); keep conservative, isolate the delta
+6. **Build command**:
    ```bash
    python3 ~/.claude/skills/nanobananaskill/scripts/nanobanana.py edit "<prompt>" --input <image_path> [--ref <ref1> ...] [--model MODEL] [--output PATH]
    ```
    `--ref` accepts up to 13 reference images. Total images (input + refs) ≤ 14.
-5. On success:
+7. On success:
    ```
    ✅ 图片已编辑
    📁 路径: [file_path]
@@ -154,6 +156,9 @@ Multi-image use cases: style transfer, character consistency, multi-image blendi
 - Retain the last effective prompt as a base
 - Treat follow-ups as deltas, not full rewrites
 - Preserve locked constraints unless user explicitly changes them
+- After the user accepts an output, treat that file as the approved baseline until the user replaces it
+- For follow-up edits, state the exact keep-unchanged constraints before the allowed delta
+- For deterministic derivative tasks such as invert, crop, export, add safe padding, or build exact lockups, prefer local deterministic transforms instead of asking the model to redraw the asset
 
 ## Template System Summary
 

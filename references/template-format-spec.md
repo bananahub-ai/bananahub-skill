@@ -142,6 +142,13 @@ The body should follow this exact order:
 
 Use this type when activation should guide the agent through multiple steps, checkpoints, or iterations instead of emitting one assembled prompt immediately.
 
+For iterative workflows, also make these rules explicit when relevant:
+
+- what becomes the `approved_baseline` after a step is accepted
+- which `locked_invariants` must remain unchanged later
+- what the typical `allowed_delta` looks like for one follow-up round
+- which later assets are deterministic derivatives rather than new model generations
+
 ## Variable Syntax
 
 `{{name|default}}` — double braces, snake_case name, pipe separator, fallback value.
@@ -170,6 +177,15 @@ Rules:
 | Mapping | One sample = one exact prompt/model variant | One sample should map to a representative workflow output |
 
 The file name is not cosmetic. It is the fastest way for users and agents to tell which model produced the image when browsing a repo or catalog.
+
+## Iterative Workflow Guidance
+
+When authoring a workflow that includes refinement rounds:
+
+- Prefer one approved baseline over a loose pile of previous attempts
+- Each follow-up step should change one major variable at a time
+- Prompt blocks for refinement should explicitly say what stays unchanged
+- If a later asset is a deterministic derivative, document it as a non-model step instead of phrasing it as another creative generation
 
 ## README Requirements
 

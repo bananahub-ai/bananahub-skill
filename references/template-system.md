@@ -161,10 +161,13 @@ Example:
 1. Read `## Goal`, `## Inputs`, `## Steps`, and `## Prompt Blocks`
 2. Treat the workflow as execution context, not as a single prompt
 3. Ask only for missing blockers from `## Inputs`
-4. Execute one step at a time
-5. Use `generate` or `edit` only when a workflow step calls for it
-6. Preserve state from the last accepted step instead of restarting from scratch
-7. Stop after each meaningful milestone if the user wants to review before continuing
+4. If a previous step has an accepted result, mark it as the current approved baseline before continuing
+5. Execute one step at a time
+6. Use `generate` or `edit` only when a workflow step calls for it
+7. Preserve state from the last accepted step instead of restarting from scratch
+8. For follow-up edits, explicitly state the locked invariants and the one allowed delta for the current round
+9. If a later step is a deterministic derivative rather than a creative reinterpretation, prefer a local deterministic transform instead of re-calling the model
+10. Stop after each meaningful milestone if the user wants to review before continuing
 
 For workflow activation, `use <template-id>` means "start or continue this guided workflow", not "immediately fire one prompt".
 
@@ -201,6 +204,7 @@ Ask the user:
 3. "适用于什么图片类型？" → determine profile
 4. "哪些输入必须提供，哪些可以默认？" → identify variables or workflow inputs
 5. "目标用户是谁？新手还是有经验的？" → difficulty
+6. If the template is iterative: "一旦某一版被接受，哪些元素必须完全不变？每轮只允许改什么？" → determine baseline-lock and allowed-delta rules
 
 ### Phase 3: Draft the Body
 
@@ -215,8 +219,10 @@ For `type: workflow`:
 1. Draft the workflow goal and when-to-use section
 2. List the required inputs
 3. Write the numbered steps
-4. Add prompt blocks for the steps that call Gemini
-5. Add success checks
+4. Add a baseline-lock step when the workflow includes refinement rounds
+5. Add prompt blocks for the steps that call Gemini
+6. Distinguish creative edit steps from deterministic derivative steps when relevant
+7. Add success checks
 
 ### Phase 4: Sample Generation and Assembly
 
