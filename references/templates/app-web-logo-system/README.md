@@ -45,7 +45,9 @@ npx bananahub add nano-banana-hub/nanobanana/app-web-logo-system
 
 ## Verified Models
 
-- No checked-in sample outputs yet. This workflow was created from the current Nano Banana prompt rules plus official Apple, Android, Google, and web platform guidance.
+- `gemini-3-pro-image-preview` — bundled BananaHub brand-case sample in `samples/sample-3-pro-01.png`, showing the approved icon baseline plus a matching website lockup
+
+The checked-in BananaHub sample is a worked example of the workflow after concept approval. The website lockup shown in the sample is a local deterministic derivative from the same approved mark, which matches the workflow rule to generate the icon idea first and derive locked variants second.
 
 ## Supported Models
 
@@ -54,7 +56,9 @@ npx bananahub add nano-banana-hub/nanobanana/app-web-logo-system
 
 ## Sample Outputs
 
-- No repository samples yet. Generate a first approved brand case, then save the chosen variants as `sample-{model-short}-{nn}.png`.
+| File | Model | Notes |
+|------|-------|-------|
+| `samples/sample-3-pro-01.png` | `gemini-3-pro-image-preview` | BananaHub worked-example board: approved ringless app icon baseline plus a matching `BananaHub` website lockup derived from the same core mark |
 
 ## Sources
 

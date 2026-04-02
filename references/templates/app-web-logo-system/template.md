@@ -10,7 +10,7 @@ profile: text-heavy
 tags: [logo, app图标, web logo, favicon, 品牌标识, icon, wordmark, maskable]
 models:
   - name: gemini-3-pro-image-preview
-    tested: false
+    tested: true
     quality: best
   - name: gemini-3.1-flash-image-preview
     tested: false
@@ -18,9 +18,13 @@ models:
 aspect: "1:1"
 difficulty: intermediate
 category: branding
-samples: []
+samples:
+  - file: samples/sample-3-pro-01.png
+    model: gemini-3-pro-image-preview
+    prompt: "Create an icon-first logo system sample for BananaHub. Use one bold black peeled-banana symbol as the approved core mark, keep it centered and high-contrast on a warm off-white presentation board, and show two outputs from the same baseline: one square app-icon-safe symbol and one clean website lockup with the exact wordmark 'BananaHub'. Keep the palette monochrome, flat, and minimal. No gradients, no mascots, no extra copy beyond the locked brand name and short usage labels."
+    aspect: "1:1"
 created: 2026-04-01
-updated: 2026-04-01
+updated: 2026-04-02
 ---
 
 ## Goal
