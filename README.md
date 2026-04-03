@@ -160,6 +160,9 @@ Built-in templates are reusable agent modules. Some are `prompt` templates that 
 # Start a workflow template
 /bananahub use consistent-character-storyboard
 
+# Plan section visuals for an article or tutorial
+/bananahub use article-illustration-workflow docs/guide.md
+
 # Ask the skill to search BananaHub for a matching workflow
 /bananahub discover logo 品牌标识
 
@@ -193,6 +196,7 @@ Typical flow:
 | `consistent-character-storyboard` | workflow | 角色一致性分镜工作流 | general |
 | `repo-explainer-diagram` | workflow | 代码库讲解图工作流 | diagram |
 | `readme-launch-visual` | workflow | README 启动视觉工作流 | text-heavy |
+| `article-illustration-workflow` | workflow | 文章配图工作流 | diagram |
 | `asset-style-consistency-pack` | workflow | 本地素材风格统一工作流 | general |
 
 ### Installing More Templates (BananaHub)

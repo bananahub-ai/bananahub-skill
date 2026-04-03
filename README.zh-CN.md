@@ -161,6 +161,9 @@ claude skill install https://github.com/bananahub-ai/bananahub-skill
 # 启动 workflow 模板
 /bananahub use consistent-character-storyboard
 
+# 给文章或教程规划分节配图
+/bananahub use article-illustration-workflow docs/guide.md
+
 # 让 skill 去 BananaHub 找合适模板
 /bananahub discover logo 品牌标识
 
@@ -194,6 +197,7 @@ claude skill install https://github.com/bananahub-ai/bananahub-skill
 | `consistent-character-storyboard` | workflow | 角色一致性分镜工作流 | general |
 | `repo-explainer-diagram` | workflow | 代码库讲解图工作流 | diagram |
 | `readme-launch-visual` | workflow | README 启动视觉工作流 | text-heavy |
+| `article-illustration-workflow` | workflow | 文章配图工作流 | diagram |
 | `asset-style-consistency-pack` | workflow | 本地素材风格统一工作流 | general |
 
 ### 安装更多模板（BananaHub）
