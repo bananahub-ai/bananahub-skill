@@ -3,7 +3,6 @@
 Use this file when:
 
 - the user explicitly asks BananaHub Skill to find, recommend, or browse templates
-- the user uses legacy Nano Banana phrasing for the same request
 - the user invokes `discover ...`
 - local template auto-matching is weak, but the task looks like a reusable prompt or workflow
 
@@ -38,7 +37,8 @@ Search BananaHub for matching templates.
 - Return: top 3 candidates unless the user asks for more
 - Use only frontmatter-level catalog fields for ranking:
   `id`, `type`, `title`, `title_en`, `description`, `tags`, `profile`, `difficulty`,
-  `catalog_source`, `official`, `pinned`, `featured`, `install_cmd`, `template_url`
+  `catalog_source`, `distribution`, `official`, `pinned`, `featured`,
+  `primary_action`, `primary_cmd`, `use_cmd`, `install_cmd`, `template_url`
 
 ### `discover curated <request>`
 
@@ -56,8 +56,9 @@ Rank candidates in this order:
 2. `pinned`
 3. `featured`
 4. `catalog_source: curated`
-5. `official`
-6. Stronger workflow fit when the user clearly needs a multi-step SOP
+5. `distribution: remote` when the user explicitly asked BananaHub to find something beyond the local starter set
+6. `official`
+7. Stronger workflow fit when the user clearly needs a multi-step SOP
 
 Keep the shortlist small. The goal is to reduce choice overload, not recreate the full gallery inside chat.
 
@@ -70,18 +71,22 @@ Remote discovery should stay lightweight:
 3. Load or inspect `template_url` only when:
    - the user asks to inspect a shortlisted candidate more closely
    - two candidates are too close to distinguish from catalog metadata alone
-4. Install with the deterministic `install_cmd` from the catalog when available
+4. If a shortlisted candidate has `distribution: bundled`, treat it as already available locally and continue with `use <template-id>` instead of reinstalling it
+5. Install with the deterministic `install_cmd` from the catalog only for `distribution: remote`
 
 ## Install Flow
 
 After recommending candidates:
 
-1. Ask once whether to install the best match, inspect another shortlisted option, or continue without a template
-2. If the user clearly says to install or directly use the best match, run the `install_cmd`
-3. After installation, switch immediately into local activation:
+1. If the best match has `distribution: bundled`, say it is already built into BananaHub Skill and continue with `use <template-id>`
+2. Otherwise ask once whether to install the best match, inspect another shortlisted option, or continue without a template
+3. If the user clearly says to install or directly use the best remote match, run the `install_cmd`
+4. When the user commits to a candidate, record the selection with:
+   `python3 {baseDir}/scripts/bananahub.py telemetry track --event selected --template-id <id> --template-repo <repo> --template-distribution bundled|remote --template-source curated|discovered --command-name use`
+5. After installation, switch immediately into local activation:
    - prompt template → continue with `use <template-id>`
    - workflow template → continue with `use <template-id>` and guide step-by-step
-4. Do not stop after installation unless the user explicitly wants to review first
+6. Do not stop after installation unless the user explicitly wants to review first
 
 ## Default Presentation Format
 
@@ -91,12 +96,13 @@ Keep remote suggestions compact:
 BananaHub candidate templates
 1. app-web-logo-system [workflow]
    Match: logo / brand / app icon
-   Source: curated, official
-   Install: bananahub add bananahub-ai/bananahub-skill/app-web-logo-system
+   Source: curated, bundled, official
+   Use: /bananahub use app-web-logo-system
 
 2. readme-launch-visual [workflow]
    Match: launch / hero / banner
-   Source: curated, official
+   Source: curated, bundled, official
+   Use: /bananahub use readme-launch-visual
 ```
 
 Then ask for one decision, not a long questionnaire.

@@ -4,10 +4,10 @@ description: >
   Agent-native Gemini image workflow for `/bananahub`. Normalizes non-English prompts into English by default,
   generates or edits images, lists or falls back across Gemini image models, and discovers or uses
   BananaHub prompt and workflow templates. Trigger only when the user explicitly mentions
-  bananahub / BananaHub, uses the `/bananahub` command, or uses legacy nanobanana phrasing for the
-  same workflow. Do NOT activate on generic image-generation requests like "生成图片" or "画一个".
+  bananahub / BananaHub or uses the `/bananahub` command. Do NOT activate on generic image-generation
+  requests like "生成图片" or "画一个".
   Typical triggers: "/bananahub", "用 bananahub 画", "bananahub 生图", "bananahub 优化提示词",
-  "bananahub 找模板", "用 nanobanana 画", "nanobanana 找模板", and "/bananahub discover".
+  "bananahub 找模板", and "/bananahub discover".
 metadata:
   version: 0.1.0
   author: bananahub-ai
@@ -40,22 +40,26 @@ Generate or edit Gemini images from non-English or mixed-language requests insid
 ## Key Paths
 
 - **Generation script**: `{baseDir}/scripts/bananahub.py`
-- **Legacy compatibility script**: `{baseDir}/scripts/nanobanana.py`
 - **Prompt optimization rules**: `references/prompt-guide.md` — read during Phase 1 (base optimization)
 - **Enhancement profiles**: `references/profiles/{name}.md` — read during Phase 3 (on-demand)
 - **Official references**: `references/official-sources.md` — authoritative source URLs, core example library
 - **Template system**: `references/template-system.md` — read when handling templates/use/create-template commands
 - **Hub discovery guide**: `references/hub-discovery.md` — read when handling `discover` or when local template matching is weak
 - **Template files**: `{baseDir}/references/templates/<id>/template.md` (built-in) + `~/.config/bananahub/templates/<id>/template.md` (user-installed)
+- **Telemetry helper**: `python3 {baseDir}/scripts/bananahub.py telemetry ...` — use for built-in/installed template adoption events
+- **Telemetry state**: `~/.config/bananahub/telemetry.json` — stores the local anonymous usage id
 - **Init guide**: `references/init-guide.md` — read when handling `init` command
 - **Optimization pipeline**: `references/optimization-pipeline.md` — read when optimizing prompts
 - **Template format spec**: `references/template-format-spec.md` — detailed field definitions, repo structure, sample requirements
 - **API config** (priority high→low):
   1. `--config <file>` CLI flag
-  2. Environment variables (`GEMINI_API_KEY`, `GOOGLE_GEMINI_BASE_URL`)
+  2. Environment variables (`GEMINI_API_KEY`, `GOOGLE_GEMINI_BASE_URL`, `GEMINI_BASE_URL`, `BANANAHUB_BASE_URL`)
   3. Skill config: `~/.config/bananahub/config.json` (`{"api_key": "...", "base_url": "..."}`)
-  4. Legacy skill config: `~/.config/nanobanana/config.json` (compatibility only)
-  5. Legacy .env: `~/.gemini/.env` (`GEMINI_API_KEY=...`)
+  4. Persistent config helpers:
+     - `python3 {baseDir}/scripts/bananahub.py config show`
+     - `python3 {baseDir}/scripts/bananahub.py config set --api-key <key>`
+     - `python3 {baseDir}/scripts/bananahub.py config set --base-url https://your-gemini-compatible-endpoint`
+     - `python3 {baseDir}/scripts/bananahub.py config set --clear-base-url`
 - **Output directory**: current working directory (where the skill is invoked)
 
 ## First-Run Detection
@@ -64,6 +68,7 @@ Before executing any command other than `help`, check if the environment is read
 1. Check whether **any supported config source** exists (CLI flag, env vars, config.json, .env)
 2. If not → inform the user and automatically start the init flow (read `references/init-guide.md`)
 3. If config exists but a generation command fails with auth/dependency errors → suggest running `init`
+4. Persist new config into `~/.config/bananahub/config.json`
 
 ## Command Routing
 
@@ -90,6 +95,7 @@ Note:
 - `optimize`, `--direct`, and `--raw` are **skill-layer controls** interpreted by you before invoking the script
 - Do **not** pass `--direct` or `--raw` through to `{baseDir}/scripts/bananahub.py`
 - `discover` is also a **skill-layer command**: use BananaHub machine-readable files and `npx bananahub add ...`, not `{baseDir}/scripts/bananahub.py`
+- `telemetry` is an **internal helper**, not a user-facing chat command. Use it when a template is selected or successfully produces output.
 
 Optional flags (append to any generation command):
 - `--model <model_id>` — specify model
@@ -144,6 +150,8 @@ Read `references/optimization-pipeline.md` for the full pipeline. Overview:
    ```bash
    python3 {baseDir}/scripts/bananahub.py generate "<prompt>" [--aspect RATIO] [--model MODEL] [--output PATH]
    ```
+   When this generation comes from an active template, also pass:
+   `--template-id <id> --template-repo <repo> --template-distribution bundled|remote --template-source curated|discovered`
 2. Execute script and parse JSON output
 3. **Automatic model fallback**: on server error (500/502/503/504), tries next model:
    `gemini-3-pro-image-preview` → `gemini-3.1-flash-image-preview` → `gemini-2.5-flash-image` → `gemini-2.0-flash-preview-image-generation`
@@ -155,6 +163,7 @@ Read `references/optimization-pipeline.md` for the full pipeline. Overview:
    🔧 模型: [model] | 宽高比: [ratio] | 尺寸: [WxH]
    📝 使用的 Prompt: [final prompt used]
    ```
+   If the script returns `template_telemetry`, treat it as best-effort success reporting only; do not surface failures unless the user asked.
 5. On failure: suggest fix based on error type (content policy → rephrase, auth → check key, network → check proxy)
 
 ## Image Editing Flow
@@ -170,6 +179,8 @@ Read `references/optimization-pipeline.md` for the full pipeline. Overview:
    python3 {baseDir}/scripts/bananahub.py edit "<prompt>" --input <image_path> [--ref <ref1> ...] [--model MODEL] [--output PATH]
    ```
    `--ref` accepts up to 13 reference images. Total images (input + refs) ≤ 14.
+   When this edit runs inside an active template/workflow, also pass:
+   `--template-id <id> --template-repo <repo> --template-distribution bundled|remote --template-source curated|discovered`
 7. On success:
    ```
    ✅ 图片已编辑
@@ -204,6 +215,7 @@ Read `references/template-system.md` for the full template system. Overview:
 - **Built-in workflow example**: `consistent-character-storyboard` for character-consistency storyboard exploration
 - **Commands**: `templates` (list installed), `templates <name>` (details), `use <id> [desc]` (activate), `discover <need>` (search hub), `create-template` (create)
 - **Auto-matching**: Phase 2.1 suggests installed templates first; Phase 2.2 can search BananaHub when local coverage is weak
+- **Adoption telemetry**: when a template is selected, call `python3 {baseDir}/scripts/bananahub.py telemetry track --event selected ...`; when template-driven `generate`/`edit` succeeds, pass template telemetry flags so the script can report `generate_success` / `edit_success`
 - **Install more**: prefer `discover` inside the skill, or run `npx bananahub add <user/repo>` directly when the install target is already known
 - **Publishing rule**: when creating templates, save samples as `sample-{model-short}-{nn}.png` and make README list verified models, supported models, and sample-to-prompt mappings
 

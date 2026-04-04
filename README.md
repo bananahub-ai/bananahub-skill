@@ -57,8 +57,7 @@ claude skill install https://github.com/bananahub-ai/bananahub-skill
 Primary command: `/bananahub`
 
 Compatibility notes:
-- Legacy config in `~/.config/nanobanana/` still works as a fallback.
-- `scripts/nanobanana.py` remains available as a legacy entrypoint, but `scripts/bananahub.py` is now the primary path.
+- Preferred persistent config now lives at `~/.config/bananahub/config.json`.
 
 ## Setup
 
@@ -79,7 +78,54 @@ If you prefer to preinstall dependencies manually:
 python3 -m pip install --user google-genai pillow
 ```
 
-**Get a Gemini API key**: https://aistudio.google.com/apikey (free tier available)
+Persistent config helpers:
+
+```bash
+# Show effective config resolution
+python3 scripts/bananahub.py config show
+
+# Persist API key under ~/.config/bananahub/config.json
+python3 scripts/bananahub.py config set --api-key <your_api_key>
+
+# Persist a custom Gemini-compatible relay/proxy endpoint
+python3 scripts/bananahub.py config set --base-url https://your-gemini-compatible-endpoint
+
+# Clear the stored custom endpoint and go back to Google's default endpoint
+python3 scripts/bananahub.py config set --clear-base-url
+```
+
+BananaHub supports custom `base_url` values for Gemini-compatible relay/proxy endpoints. You can provide them through `~/.config/bananahub/config.json` or environment variables such as `GOOGLE_GEMINI_BASE_URL`, `GEMINI_BASE_URL`, or `BANANAHUB_BASE_URL`.
+
+**Create/manage your Gemini API key**: https://aistudio.google.com/apikey
+
+Check the current official pricing/quota policy here:
+- https://ai.google.dev/gemini-api/docs/pricing
+- https://ai.google.dev/gemini-api/docs/rate-limits
+
+## Template Usage Telemetry
+
+BananaHub now separates template distribution from template adoption:
+
+- **Remote templates** still use install counts
+- **Built-in templates** use usage telemetry instead of fake install counts
+
+The local runtime keeps a best-effort anonymous id in `~/.config/bananahub/telemetry.json` and reports:
+
+- `selected` — the template was chosen for activation
+- `generate_success` — a template-driven generation finished successfully
+- `edit_success` — a template-driven edit finished successfully
+
+Check local telemetry state:
+
+```bash
+python3 scripts/bananahub.py telemetry status
+```
+
+Disable telemetry for a run or shell session:
+
+```bash
+export BANANAHUB_DISABLE_TELEMETRY=1
+```
 
 ## Usage
 
@@ -288,7 +334,6 @@ bananahub-skill/
 ├── SKILL.md                          # Skill definition (Claude Code entry point)
 ├── scripts/
 │   ├── bananahub.py                  # Primary image generation entrypoint
-│   └── nanobanana.py                 # Legacy compatibility entrypoint
 └── references/
     ├── prompt-guide.md               # Prompt optimization rules
     ├── official-sources.md           # Authoritative references & example library
@@ -309,7 +354,8 @@ bananahub-skill/
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) with skill support
 - Python 3.8+
-- Gemini API key ([get one free](https://aistudio.google.com/apikey))
+- Gemini API key from Google AI Studio or a Gemini-compatible relay provider
+- Billing/quota depends on Google's current policy, your model choice, and your account/region
 
 ## License
 

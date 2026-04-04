@@ -16,7 +16,7 @@ BananaHub is the unified brand for this stack. In practice it has four tightly c
 - **BananaHub Skill runtime** — the agent-native `/bananahub` interface for optimization, generation, editing, and iteration
 - **Optimization engine** — constraint extraction, conservative enhancement, progressive clarification, and profile-specific guidance
 - **Template system** — reusable prompt or workflow modules with metadata, samples, and auto-matching
-- **BananaHub distribution loop** — searchable gallery, install CLI, machine-readable catalog, and install/trending telemetry
+- **BananaHub distribution loop** — searchable gallery, install CLI, machine-readable catalog, install telemetry for remote templates, and usage telemetry for built-in template adoption
 
 BananaHub is therefore not a giant prompt dump. It is a way to let reusable prompt structures travel as installable modules, without turning the runtime into a monolith.
 
@@ -116,6 +116,27 @@ POST https://bananahub-api.workers.dev/api/installs
 ```
 GET /api/stats?repo=user/repo → { "total_installs": 42, "weekly_installs": 7 }
 GET /api/trending → [{ "repo": "...", "installs_7d": 15 }, ...]
+```
+
+### Built-in Template Usage Telemetry
+
+**Mechanism**: when a template is selected or successfully produces output, the skill reports a best-effort anonymous usage event:
+
+```text
+POST https://bananahub-api.workers.dev/api/usage
+{ "repo": "bananahub-ai/bananahub-skill", "template_id": "cute-sticker", "event": "generate_success", "anonymous_id": "..." }
+```
+
+**Event model**:
+
+- `selected` — template chosen for activation
+- `generate_success` — template-driven generation succeeded
+- `edit_success` — template-driven edit succeeded
+
+**Hub reads**:
+
+```text
+GET /api/usage-stats?repo=bananahub-ai/bananahub-skill&template_id=cute-sticker
 ```
 
 ---

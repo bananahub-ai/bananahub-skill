@@ -141,6 +141,8 @@ After profile matching, check if any installed template closely matches the user
    2. Continue regular optimization
    ```
    If user chooses template → switch to `use <template-id>` flow.
+   Before switching, record selection with:
+   `python3 {baseDir}/scripts/bananahub.py telemetry track --event selected --template-id <id> --template-repo bananahub-ai/bananahub-skill --template-distribution bundled --template-source curated --command-name use`
    If user chooses regular → continue normal Phase 3.
    When the matched template has `type: prompt`, activation means assembling the prompt and generating.
    When the matched template has `type: workflow`, activation means loading the workflow context and guiding the user step-by-step.
@@ -162,8 +164,9 @@ Flow:
 3. Rank by relevance first, then `pinned` / `featured` / curated / official
 4. Show a shortlist instead of a full dump
 5. Ask once whether to install the best match, inspect another candidate, or continue regular optimization
-6. If the user installs a candidate, immediately switch to the normal `use <template-id>` flow
-7. Do not load the full remote template body during broad search unless a shortlist candidate needs closer inspection
+6. If the user installs a candidate, immediately record `selected` via the telemetry helper, then switch to the normal `use <template-id>` flow
+7. If the best match is already `distribution: bundled`, record `selected` before continuing with the local `use <template-id>` flow
+8. Do not load the full remote template body during broad search unless a shortlist candidate needs closer inspection
 
 **Special routing note**:
 - `手绘笔记 / sketchnote / 白板风 / 手账风` is **not** a standalone Profile

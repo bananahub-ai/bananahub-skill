@@ -141,10 +141,11 @@ Find more: /bananahub discover <request>
 1. Read `references/hub-discovery.md`
 2. Search the BananaHub machine-readable catalog, not the visual homepage
 3. Prefer curated results by default
-4. Return a short ranked shortlist with `type`, `profile`, source layer, and `install_cmd`
-5. Ask once whether to install the best match, inspect another candidate, or continue without a template
-6. If the user approves installation, run `npx bananahub add ...` using the catalog's `install_cmd`
-7. After installation, immediately continue with the normal `use <template-id>` flow
+4. Return a short ranked shortlist with `type`, `profile`, source layer, distribution, and `primary_cmd`
+5. If the best match is `distribution: bundled`, say it is already available locally and continue with `use <template-id>`
+6. Otherwise ask once whether to install the best match, inspect another candidate, or continue without a template
+7. If the user approves installation, run `npx bananahub add ...` using the catalog's `install_cmd`
+8. After installation, immediately continue with the normal `use <template-id>` flow
 
 ## `templates <name>` — Show Template Details
 
@@ -160,7 +161,9 @@ Find more: /bananahub discover <request>
 
 1. **Locate template**: search both template paths for `<id>/template.md`
 2. **Read frontmatter** and determine `type`
-3. **Branch by type**:
+3. **Record selection telemetry** before execution:
+   `python3 {baseDir}/scripts/bananahub.py telemetry track --event selected --template-id <id> --template-repo <repo> --template-distribution bundled|remote --template-source curated|discovered --command-name use`
+4. **Branch by type**:
 
 ### Activation for `type: prompt`
 
@@ -170,7 +173,8 @@ Find more: /bananahub discover <request>
    - If no description is provided, use defaults
    - If a description is provided, map user intent to matching variables and leave the rest unchanged
 4. Apply template defaults for `aspect` and best-tested `model` unless the user overrides them
-5. Generate using the normal image flow
+5. Generate using the normal image flow, and pass template telemetry flags into the script command so success can be reported automatically:
+   `--template-id <id> --template-repo <repo> --template-distribution bundled|remote --template-source curated|discovered`
 6. Display template attribution
 
 ### Activation for `type: workflow`
@@ -180,7 +184,7 @@ Find more: /bananahub discover <request>
 3. Ask only for missing blockers from `## Inputs`
 4. If a previous step has an accepted result, mark it as the current approved baseline before continuing
 5. Execute one step at a time
-6. Use `generate` or `edit` only when a workflow step calls for it
+6. Use `generate` or `edit` only when a workflow step calls for it, and pass template telemetry flags into the script command so successful output can be reported automatically
 7. Preserve state from the last accepted step instead of restarting from scratch
 8. For follow-up edits, explicitly state the locked invariants and the one allowed delta for the current round
 9. If a later step is a deterministic derivative rather than a creative reinterpretation, prefer a local deterministic transform instead of re-calling the model

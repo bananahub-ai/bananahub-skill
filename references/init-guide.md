@@ -17,21 +17,27 @@ If `dependencies.ok` is false:
 
 If `config_source.ok` is false (no config found anywhere):
 1. Ask the user for their Gemini API key. Provide guidance:
-   - **Official Google API**: get a key from https://aistudio.google.com/apikey (free tier available)
+   - **Official Google API**: create/manage a key at https://aistudio.google.com/apikey
+   - **Pricing note**: usage may be free or paid depending on Google's current pricing/quota policy, the selected model, and the user's account/region
    - **Proxy service**: if the user uses a proxy/relay (e.g., 88code), ask for their proxy key and base URL
 2. Ask if they need a custom base URL (for proxy users) or will use the default Google endpoint
-3. Once the user provides the key (and optionally base URL), create `~/.config/bananahub/config.json`:
-   ```json
-   {"api_key": "<user's key>", "base_url": "<url if provided>"}
+3. Once the user provides the key (and optionally base URL), prefer running:
+   ```bash
+   python3 {baseDir}/scripts/bananahub.py config set --api-key "<user's key>"
+   python3 {baseDir}/scripts/bananahub.py config set --base-url "<url if provided>"
    ```
-   (Omit `base_url` field if using default Google endpoint)
+   If the user wants the default Google endpoint, omit the second command.
+   If the user later wants to revert to Google's default endpoint, run:
+   ```bash
+   python3 {baseDir}/scripts/bananahub.py config set --clear-base-url
+   ```
 
 ## Step 4: Fix missing API key
 
 If config source exists but `api_key.ok` is false:
 - A config file exists but `GEMINI_API_KEY` / `api_key` is empty or missing
 - Ask the user for their key (same guidance as Step 3)
-- Write/update the key in `~/.config/bananahub/config.json` (preferred) or the existing config file
+- Write/update the key in `~/.config/bananahub/config.json` via `python3 {baseDir}/scripts/bananahub.py config set --api-key "<user's key>"`
 
 ## Step 5: Run full diagnostics with API test
 

@@ -57,8 +57,7 @@ claude skill install https://github.com/bananahub-ai/bananahub-skill
 主命令：`/bananahub`
 
 兼容说明：
-- 旧的 `~/.config/nanobanana/` 配置目录仍然会作为 fallback 继续读取。
-- `scripts/nanobanana.py` 仍然保留为 legacy 入口，但主入口已经切到 `scripts/bananahub.py`。
+- 首选持久化配置路径现在是 `~/.config/bananahub/config.json`。
 
 ## 初始化
 
@@ -80,7 +79,54 @@ claude skill install https://github.com/bananahub-ai/bananahub-skill
 python3 -m pip install --user google-genai pillow
 ```
 
-**Gemini API Key 申请地址**：https://aistudio.google.com/apikey（有免费额度）
+持久化配置辅助命令：
+
+```bash
+# 查看当前实际生效的配置来源
+python3 scripts/bananahub.py config show
+
+# 把 API Key 持久化到 ~/.config/bananahub/config.json
+python3 scripts/bananahub.py config set --api-key <your_api_key>
+
+# 把 Gemini 兼容中转 / 代理节点写入持久化配置
+python3 scripts/bananahub.py config set --base-url https://your-gemini-compatible-endpoint
+
+# 清掉持久化的自定义节点，回退到 Google 默认端点
+python3 scripts/bananahub.py config set --clear-base-url
+```
+
+BananaHub 支持自定义 `base_url`，适用于兼容 Gemini 请求格式的中转 / 代理节点。它既可以从 `~/.config/bananahub/config.json` 读取，也可以从 `GOOGLE_GEMINI_BASE_URL`、`GEMINI_BASE_URL`、`BANANAHUB_BASE_URL` 这些环境变量读取。
+
+**Gemini API Key 管理地址**：https://aistudio.google.com/apikey
+
+当前官方价格 / 配额说明请以这里为准：
+- https://ai.google.dev/gemini-api/docs/pricing
+- https://ai.google.dev/gemini-api/docs/rate-limits
+
+## 模板使用遥测
+
+BananaHub 现在把模板的“分发方式”和“采用情况”拆开统计：
+
+- **远程模板** 继续看安装量
+- **内置模板** 不再伪造安装量，而是记录实际使用事件
+
+本地运行时会在 `~/.config/bananahub/telemetry.json` 里保存一个匿名 id，并尽力上报这些事件：
+
+- `selected`：模板被选中并进入激活流程
+- `generate_success`：模板驱动的一次生图成功完成
+- `edit_success`：模板驱动的一次改图成功完成
+
+查看本地遥测状态：
+
+```bash
+python3 scripts/bananahub.py telemetry status
+```
+
+如果要禁用遥测，可以在当前 shell 或单次运行前设置：
+
+```bash
+export BANANAHUB_DISABLE_TELEMETRY=1
+```
 
 ## 基本用法
 
@@ -289,7 +335,6 @@ bananahub-skill/
 ├── SKILL.md                          # Skill 定义（Claude Code 入口）
 ├── scripts/
 │   ├── bananahub.py                  # 主图片生成入口
-│   └── nanobanana.py                 # legacy 兼容入口
 └── references/
     ├── prompt-guide.md               # Prompt 优化规则
     ├── official-sources.md           # 权威参考和示例库
@@ -310,7 +355,8 @@ bananahub-skill/
 
 - 支持 Skill 的 [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
 - Python 3.8+
-- Gemini API Key（[免费申请](https://aistudio.google.com/apikey)）
+- 来自 Google AI Studio 或 Gemini 兼容中转服务的 API Key
+- 具体计费 / 配额以 Google 当前策略、所选模型和账号/地区为准
 
 ## License
 
