@@ -17,13 +17,13 @@ Keep these surfaces separate. Do not silently replace a good local match with a 
 
 Use BananaHub's machine-readable files instead of scraping the visual homepage:
 
-1. Read `https://bananahub-ai.github.io/llms.txt` if you have not used BananaHub yet in the current conversation or if you need the latest entry-point guidance
-2. Default to `https://bananahub-ai.github.io/catalog-curated.json` for safer recommendations
-3. Use `https://bananahub-ai.github.io/catalog.json` when:
+1. Read `https://bananahub.ai/llms.txt` if you have not used BananaHub yet in the current conversation or if you need the latest entry-point guidance
+2. Default to `https://bananahub.ai/catalog-curated.json` for safer recommendations
+3. Use `https://bananahub.ai/catalog.json` when:
    - the user asks for more options or community templates
    - curated results are weak
    - the user explicitly says BananaHub / hub / community / discovered
-4. Use `https://bananahub-ai.github.io/agent-catalog.md` only as a readable summary when structured fields are not enough
+4. Use `https://bananahub.ai/agent-catalog.md` only as a readable summary when structured fields are not enough
 
 Do not scrape cards or filters from the homepage when these files are available.
 

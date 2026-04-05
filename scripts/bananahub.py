@@ -30,7 +30,7 @@ def load_dotenv(env_path):
 SKILL_CONFIG_DIR = Path.home() / ".config" / "bananahub"
 SKILL_CONFIG_PATH = SKILL_CONFIG_DIR / "config.json"
 TELEMETRY_STATE_PATH = SKILL_CONFIG_DIR / "telemetry.json"
-HUB_API_BASE = os.environ.get("BANANAHUB_HUB_API", "https://bananahub-api.zhan9kun.workers.dev/api")
+HUB_API_BASE = os.environ.get("BANANAHUB_HUB_API", "https://worker.bananahub.ai/api")
 DEFAULT_TEMPLATE_REPO = "bananahub-ai/bananahub-skill"
 VALID_TEMPLATE_DISTRIBUTIONS = {"bundled", "remote"}
 VALID_CATALOG_SOURCES = {"curated", "discovered"}

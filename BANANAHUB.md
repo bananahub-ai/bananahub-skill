@@ -105,7 +105,7 @@ my-template/
 
 **Mechanism**: on each `add`, CLI POSTs to hub API:
 ```
-POST https://bananahub-api.workers.dev/api/installs
+POST https://worker.bananahub.ai/api/installs
 { "repo": "user/repo", "template_id": "cyberpunk-city", "cli_version": "0.1.0" }
 ```
 
@@ -123,7 +123,7 @@ GET /api/trending → [{ "repo": "...", "installs_7d": 15 }, ...]
 **Mechanism**: when a template is selected or successfully produces output, the skill reports a best-effort anonymous usage event:
 
 ```text
-POST https://bananahub-api.workers.dev/api/usage
+POST https://worker.bananahub.ai/api/usage
 { "repo": "bananahub-ai/bananahub-skill", "template_id": "cute-sticker", "event": "generate_success", "anonymous_id": "..." }
 ```
 
@@ -141,7 +141,7 @@ GET /api/usage-stats?repo=bananahub-ai/bananahub-skill&template_id=cute-sticker
 
 ---
 
-## Hub Site: bananahub.github.io
+## Hub Site: bananahub.ai
 
 BananaHub is intentionally optimized for three audiences at once:
 
@@ -297,13 +297,12 @@ Static site (GitHub Pages)
 | Repo | Purpose | Status |
 |------|---------|--------|
 | `bananahub` (npm) | CLI tool | ✅ Built at `/home/coder/project/nano-banana-hub/bananahub/` |
-| `bananahub-ai.github.io` | Hub static site | ✅ Live |
+| `bananahub-ai.github.io` | Hub static site | ✅ Live at `https://bananahub.ai` |
 | `bananahub-api` | Cloudflare Worker for install tracking | ✅ Live |
 | `bananahub-skill` | Official skill + built-in template collection | ✅ Live |
 
 ## Open Questions
 
-1. **Hub domain**: `bananahub.github.io` or custom domain?
-2. **Multi-model samples**: require samples from multiple models, or 1 enough?
-3. **Template review**: approval process for hub submissions, or accept all valid?
-4. **Offline mode**: CLI work without network (skip tracking, use cached search)?
+1. **Multi-model samples**: require samples from multiple models, or 1 enough?
+2. **Template review**: approval process for hub submissions, or accept all valid?
+3. **Offline mode**: CLI work without network (skip tracking, use cached search)?

@@ -108,7 +108,7 @@ my-template/
 **机制**：每次 `add` 都由 CLI 向 Hub API 发 POST：
 
 ```text
-POST https://bananahub-api.workers.dev/api/installs
+POST https://worker.bananahub.ai/api/installs
 { "repo": "user/repo", "template_id": "cyberpunk-city", "cli_version": "0.1.0" }
 ```
 
@@ -127,7 +127,7 @@ GET /api/trending → [{ "repo": "...", "installs_7d": 15 }, ...]
 **机制**：当模板被选中或成功产出结果时，skill 会尽力上报匿名使用事件：
 
 ```text
-POST https://bananahub-api.workers.dev/api/usage
+POST https://worker.bananahub.ai/api/usage
 { "repo": "bananahub-ai/bananahub-skill", "template_id": "cute-sticker", "event": "generate_success", "anonymous_id": "..." }
 ```
 
@@ -145,7 +145,7 @@ GET /api/usage-stats?repo=bananahub-ai/bananahub-skill&template_id=cute-sticker
 
 ---
 
-## Hub 站点：`bananahub.github.io`
+## Hub 站点：`bananahub.ai`
 
 BananaHub 的站点同时服务三类对象：
 
@@ -306,6 +306,6 @@ BananaHub 的站点同时服务三类对象：
 | 仓库 | 用途 | 状态 |
 |---|---|---|
 | `bananahub`（npm） | CLI 工具 | ✅ 已构建，路径：`/home/coder/project/nano-banana-hub/bananahub/` |
-| `bananahub-ai.github.io` | Hub 静态站点 | ✅ 已上线 |
+| `bananahub-ai.github.io` | Hub 静态站点 | ✅ 已上线，域名：`https://bananahub.ai` |
 | `bananahub-api` | 安装统计的 Cloudflare Worker | ✅ 已上线 |
 | `bananahub-skill` | 官方 skill 与内置模板集合 | ✅ 已上线 |
