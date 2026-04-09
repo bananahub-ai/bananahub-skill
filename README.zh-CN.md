@@ -70,7 +70,7 @@ claude skill install https://github.com/bananahub-ai/bananahub-skill
 这个命令会做三件事：
 
 - 检查 Python 依赖：`google-genai`、`pillow`
-- 引导你把 Gemini API Key 配到支持的配置来源里
+- 引导你选择接入路径并写入支持的配置来源
 - 在基础环境就绪后测试 API 是否可用
 
 如果你想先手动装依赖，可以直接运行：
@@ -85,17 +85,41 @@ python3 -m pip install --user google-genai pillow
 # 查看当前实际生效的配置来源
 python3 scripts/bananahub.py config show
 
-# 把 API Key 持久化到 ~/.config/bananahub/config.json
-python3 scripts/bananahub.py config set --api-key <your_api_key>
+# Google AI Studio / Gemini Developer API
+python3 scripts/bananahub.py config set --provider google-ai-studio --api-key <your_api_key>
 
-# 把 Gemini 兼容中转 / 代理节点写入持久化配置
-python3 scripts/bananahub.py config set --base-url https://your-gemini-compatible-endpoint
+# Gemini-compatible 中转 / 代理节点
+python3 scripts/bananahub.py config set --provider gemini-compatible --base-url https://your-gemini-compatible-endpoint --api-key <your_proxy_key>
+
+# OpenAI-compatible 节点
+python3 scripts/bananahub.py config set --provider openai-compatible --base-url https://your-openai-compatible-endpoint --api-key <your_api_key>
+
+# Vertex AI
+python3 scripts/bananahub.py config set --provider vertex-ai --auth-mode adc --project <gcp-project> --location global
+
+# 可选：固定默认模型
+python3 scripts/bananahub.py config set --model gemini-3.1-flash-image-preview
 
 # 清掉持久化的自定义节点，回退到 Google 默认端点
 python3 scripts/bananahub.py config set --clear-base-url
 ```
 
-BananaHub 支持自定义 `base_url`，适用于兼容 Gemini 请求格式的中转 / 代理节点。它既可以从 `~/.config/bananahub/config.json` 读取，也可以从 `GOOGLE_GEMINI_BASE_URL`、`GEMINI_BASE_URL`、`BANANAHUB_BASE_URL` 这些环境变量读取。
+BananaHub 现在支持 4 条接入路径：
+
+- `google-ai-studio`：默认推荐，支持 `generate / edit / models / init`
+- `gemini-compatible`：适合 Gemini 风格中转，支持 `generate / edit / models / init`
+- `vertex-ai`：适合企业 GCP / Vertex AI，支持 `generate / edit / models / init`
+- `openai-compatible`：适合 OpenAI 风格网关，当前支持 `generate / models / init`
+
+`openai-compatible` 当前不支持 `edit`，如果你要改图，请切回 `google-ai-studio`、`gemini-compatible` 或 `vertex-ai`。
+
+关于第三方 `base_url`：
+
+- `gemini-compatible`：既可以填供应商文档里的根地址，也可以直接填带 `/v1beta` 的地址；runtime 会在请求前做版本归一化，避免把 `/v1beta` 拼重
+- `openai-compatible`：如果你填的是裸主机，runtime 会尝试补 `/v1`；如果是 Google 官方 OpenAI 兼容入口，runtime 会识别并补成 `https://generativelanguage.googleapis.com/v1beta/openai`
+- 如果供应商文档明确给了完整路径，优先按文档填写
+
+这些配置既可以从 `~/.config/bananahub/config.json` 读取，也可以从 `GOOGLE_API_KEY`、`GEMINI_API_KEY`、`BANANAHUB_PROVIDER`、`BANANAHUB_AUTH_MODE`、`BANANAHUB_MODEL`、`GOOGLE_GEMINI_BASE_URL`、`GEMINI_BASE_URL`、`BANANAHUB_BASE_URL`、`GOOGLE_CLOUD_PROJECT`、`GOOGLE_CLOUD_LOCATION` 这些环境变量读取。
 
 **Gemini API Key 管理地址**：https://aistudio.google.com/apikey
 

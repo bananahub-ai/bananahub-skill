@@ -2,6 +2,7 @@
 """BananaHub - Gemini image generation CLI tool."""
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -9,6 +10,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from urllib import error as urlerror, request as urlrequest
+from urllib.parse import urlparse, urlunparse
 from uuid import uuid4
 
 
@@ -36,21 +38,105 @@ VALID_TEMPLATE_DISTRIBUTIONS = {"bundled", "remote"}
 VALID_CATALOG_SOURCES = {"curated", "discovered"}
 VALID_TELEMETRY_EVENTS = {"selected", "generate_success", "edit_success"}
 
+PROVIDER_GOOGLE_AI_STUDIO = "google-ai-studio"
+PROVIDER_GEMINI_COMPATIBLE = "gemini-compatible"
+PROVIDER_VERTEX_AI = "vertex-ai"
+PROVIDER_OPENAI_COMPATIBLE = "openai-compatible"
+SUPPORTED_PROVIDERS = {
+    PROVIDER_GOOGLE_AI_STUDIO,
+    PROVIDER_GEMINI_COMPATIBLE,
+    PROVIDER_VERTEX_AI,
+    PROVIDER_OPENAI_COMPATIBLE,
+}
+SUPPORTED_RUNTIME_PROVIDERS = {
+    PROVIDER_GOOGLE_AI_STUDIO,
+    PROVIDER_GEMINI_COMPATIBLE,
+    PROVIDER_VERTEX_AI,
+    PROVIDER_OPENAI_COMPATIBLE,
+}
+DEFAULT_PROVIDER = PROVIDER_GOOGLE_AI_STUDIO
+DEFAULT_LOCATION = "global"
+
+TRANSPORT_GENAI = "genai"
+TRANSPORT_GEMINI_REST = "gemini-rest"
+TRANSPORT_OPENAI_REST = "openai-rest"
+SUPPORTED_TRANSPORTS = {
+    TRANSPORT_GENAI,
+    TRANSPORT_GEMINI_REST,
+    TRANSPORT_OPENAI_REST,
+}
+
+AUTH_MODE_API_KEY = "api_key"
+AUTH_MODE_ADC = "adc"
+SUPPORTED_AUTH_MODES = {AUTH_MODE_API_KEY, AUTH_MODE_ADC}
+
+PROVIDER_ALIASES = {
+    "google": PROVIDER_GOOGLE_AI_STUDIO,
+    "google-ai": PROVIDER_GOOGLE_AI_STUDIO,
+    "google-ai-studio": PROVIDER_GOOGLE_AI_STUDIO,
+    "ai-studio": PROVIDER_GOOGLE_AI_STUDIO,
+    "gemini-developer-api": PROVIDER_GOOGLE_AI_STUDIO,
+    "developer-api": PROVIDER_GOOGLE_AI_STUDIO,
+    "gemini-compatible": PROVIDER_GEMINI_COMPATIBLE,
+    "compatible": PROVIDER_GEMINI_COMPATIBLE,
+    "proxy": PROVIDER_GEMINI_COMPATIBLE,
+    "relay": PROVIDER_GEMINI_COMPATIBLE,
+    "custom-endpoint": PROVIDER_GEMINI_COMPATIBLE,
+    "vertex": PROVIDER_VERTEX_AI,
+    "vertex-ai": PROVIDER_VERTEX_AI,
+    "openai": PROVIDER_OPENAI_COMPATIBLE,
+    "openai-compatible": PROVIDER_OPENAI_COMPATIBLE,
+}
+TRANSPORT_ALIASES = {
+    "genai": TRANSPORT_GENAI,
+    "gemini": TRANSPORT_GEMINI_REST,
+    "gemini-rest": TRANSPORT_GEMINI_REST,
+    "openai": TRANSPORT_OPENAI_REST,
+    "openai-rest": TRANSPORT_OPENAI_REST,
+}
+AUTH_MODE_ALIASES = {
+    "api_key": AUTH_MODE_API_KEY,
+    "apikey": AUTH_MODE_API_KEY,
+    "key": AUTH_MODE_API_KEY,
+    "adc": AUTH_MODE_ADC,
+}
+DEFAULT_TRANSPORT_BY_PROVIDER = {
+    PROVIDER_GOOGLE_AI_STUDIO: TRANSPORT_GENAI,
+    PROVIDER_GEMINI_COMPATIBLE: TRANSPORT_GENAI,
+    PROVIDER_VERTEX_AI: TRANSPORT_GENAI,
+    PROVIDER_OPENAI_COMPATIBLE: TRANSPORT_OPENAI_REST,
+}
+
 # Mapping from config.json keys to internal config keys
 CONFIG_KEY_MAP = {
+    "provider": "BANANAHUB_PROVIDER",
+    "transport": "BANANAHUB_TRANSPORT",
+    "auth_mode": "BANANAHUB_AUTH_MODE",
     "api_key": "GEMINI_API_KEY",
+    "google_api_key": "GEMINI_API_KEY",
     "gemini_api_key": "GEMINI_API_KEY",
     "base_url": "GOOGLE_GEMINI_BASE_URL",
     "gemini_base_url": "GOOGLE_GEMINI_BASE_URL",
+    "project": "GOOGLE_CLOUD_PROJECT",
+    "location": "GOOGLE_CLOUD_LOCATION",
+    "model": "BANANAHUB_MODEL",
+    "use_vertexai": "GOOGLE_GENAI_USE_VERTEXAI",
 }
 
 ENV_KEY_ALIASES = {
-    "GEMINI_API_KEY": ("GEMINI_API_KEY",),
+    "BANANAHUB_PROVIDER": ("BANANAHUB_PROVIDER",),
+    "BANANAHUB_TRANSPORT": ("BANANAHUB_TRANSPORT",),
+    "BANANAHUB_AUTH_MODE": ("BANANAHUB_AUTH_MODE",),
+    "BANANAHUB_MODEL": ("BANANAHUB_MODEL",),
+    "GEMINI_API_KEY": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
     "GOOGLE_GEMINI_BASE_URL": (
         "GOOGLE_GEMINI_BASE_URL",
         "GEMINI_BASE_URL",
         "BANANAHUB_BASE_URL",
     ),
+    "GOOGLE_CLOUD_PROJECT": ("GOOGLE_CLOUD_PROJECT",),
+    "GOOGLE_CLOUD_LOCATION": ("GOOGLE_CLOUD_LOCATION", "GOOGLE_CLOUD_REGION"),
+    "GOOGLE_GENAI_USE_VERTEXAI": ("GOOGLE_GENAI_USE_VERTEXAI",),
 }
 
 def _mask_secret(value):
@@ -74,6 +160,180 @@ def _normalize_base_url(value):
         raise ValueError("base_url must start with http:// or https://")
 
     return normalized.rstrip("/")
+
+
+def _split_trailing_api_version(base_url, default_api_version="v1beta"):
+    """Split a trailing API version suffix from a base URL when present."""
+    normalized = _normalize_base_url(base_url)
+    if not normalized:
+        return None, default_api_version, False
+
+    parsed = urlparse(normalized)
+    path = parsed.path.rstrip("/")
+    match = re.search(r"/(v\d+(?:beta\d*|alpha\d*)?)$", path)
+    if not match:
+        return normalized, default_api_version, False
+
+    api_version = match.group(1)
+    base_path = path[: -(len(api_version) + 1)]
+    rebuilt = urlunparse(parsed._replace(path=base_path))
+    return rebuilt.rstrip("/"), api_version, True
+
+
+def _resolve_genai_endpoint(base_url):
+    """Resolve a Gemini-style endpoint into base_url + api_version parts."""
+    if not base_url:
+        return {
+            "configured_base_url": None,
+            "resolved_base_url": None,
+            "api_version": "v1beta",
+            "warnings": [],
+        }
+
+    resolved_base_url, api_version, stripped_version = _split_trailing_api_version(base_url)
+    warnings = []
+    if stripped_version:
+        warnings.append(
+            f"Detected trailing `/{api_version}` in base_url and normalized it to avoid duplicating the API version."
+        )
+
+    return {
+        "configured_base_url": _normalize_base_url(base_url),
+        "resolved_base_url": resolved_base_url,
+        "api_version": api_version,
+        "warnings": warnings,
+    }
+
+
+def _resolve_openai_endpoint(base_url):
+    """Resolve an OpenAI-compatible endpoint into the URL used by runtime calls."""
+    configured = _normalize_base_url(base_url)
+    parsed = urlparse(configured)
+    path = parsed.path.rstrip("/")
+    warnings = []
+
+    if parsed.netloc == "generativelanguage.googleapis.com":
+        if path in {"", "/v1beta", "/v1beta1", "/v1"}:
+            suffix = "/v1beta/openai"
+            warnings.append("Expanded the official Gemini OpenAI-compatible endpoint to `/v1beta/openai`.")
+        elif path == "/openai":
+            suffix = "/v1beta/openai"
+            warnings.append("Expanded `/openai` to the official Gemini path `/v1beta/openai`.")
+        else:
+            suffix = path or "/v1beta/openai"
+        resolved = urlunparse(parsed._replace(path=suffix))
+        return {
+            "configured_base_url": configured,
+            "resolved_base_url": resolved.rstrip("/"),
+            "warnings": warnings,
+        }
+
+    if path in {"", "/"}:
+        resolved = urlunparse(parsed._replace(path="/v1"))
+        warnings.append("Appended `/v1` to the OpenAI-compatible base_url.")
+        return {
+            "configured_base_url": configured,
+            "resolved_base_url": resolved.rstrip("/"),
+            "warnings": warnings,
+        }
+
+    if path == "/openai":
+        resolved = urlunparse(parsed._replace(path="/openai/v1"))
+        warnings.append("Appended `/v1` to the OpenAI-compatible `/openai` base_url.")
+        return {
+            "configured_base_url": configured,
+            "resolved_base_url": resolved.rstrip("/"),
+            "warnings": warnings,
+        }
+
+    return {
+        "configured_base_url": configured,
+        "resolved_base_url": configured,
+        "warnings": warnings,
+    }
+
+
+def _normalize_provider(value):
+    """Normalize provider ids accepted by BananaHub config."""
+    if value is None:
+        return None
+
+    normalized = str(value).strip().lower()
+    if not normalized:
+        return None
+    normalized = PROVIDER_ALIASES.get(normalized, normalized)
+    if normalized not in SUPPORTED_PROVIDERS:
+        supported = ", ".join(sorted(SUPPORTED_PROVIDERS))
+        raise ValueError(f"provider must be one of: {supported}")
+    return normalized
+
+
+def _normalize_transport(value):
+    """Normalize transport ids accepted by BananaHub config."""
+    if value is None:
+        return None
+
+    normalized = str(value).strip().lower()
+    if not normalized:
+        return None
+    normalized = TRANSPORT_ALIASES.get(normalized, normalized)
+    if normalized not in SUPPORTED_TRANSPORTS:
+        supported = ", ".join(sorted(SUPPORTED_TRANSPORTS))
+        raise ValueError(f"transport must be one of: {supported}")
+    return normalized
+
+
+def _normalize_auth_mode(value):
+    """Normalize auth-mode values accepted by BananaHub config."""
+    if value is None:
+        return None
+
+    normalized = str(value).strip().lower()
+    if not normalized:
+        return None
+    normalized = AUTH_MODE_ALIASES.get(normalized, normalized)
+    if normalized not in SUPPORTED_AUTH_MODES:
+        supported = ", ".join(sorted(SUPPORTED_AUTH_MODES))
+        raise ValueError(f"auth_mode must be one of: {supported}")
+    return normalized
+
+
+def _normalize_model(value):
+    """Normalize optional default model ids."""
+    if value is None:
+        return None
+
+    normalized = str(value).strip()
+    if not normalized:
+        return None
+    return _canonicalize_model(normalized)
+
+
+def _is_truthy(value):
+    """Return True for common truthy env/config values."""
+    normalized = str(value or "").strip().lower()
+    return normalized in {"1", "true", "yes", "on"}
+
+
+def _normalize_config_value(env_key, value):
+    """Normalize raw config values based on the canonical internal key."""
+    if env_key == "GOOGLE_GEMINI_BASE_URL":
+        return _normalize_base_url(value)
+    if env_key == "BANANAHUB_PROVIDER":
+        return _normalize_provider(value)
+    if env_key == "BANANAHUB_TRANSPORT":
+        return _normalize_transport(value)
+    if env_key == "BANANAHUB_AUTH_MODE":
+        return _normalize_auth_mode(value)
+    if env_key == "BANANAHUB_MODEL":
+        return _normalize_model(value)
+    if env_key == "GOOGLE_GENAI_USE_VERTEXAI":
+        return "true" if _is_truthy(value) else None
+
+    normalized = str(value).strip()
+    if not normalized:
+        return None
+    return normalized
 
 
 def _read_json_file(path, required=False):
@@ -271,17 +531,12 @@ def _apply_json_config(config, resolved_from, data, source):
         value = data.get(json_key)
         if value in (None, ""):
             continue
-        if env_key == "GOOGLE_GEMINI_BASE_URL":
-            try:
-                value = _normalize_base_url(value)
-            except ValueError:
-                continue
-            if not value:
-                continue
-        else:
-            value = str(value).strip()
-            if not value:
-                continue
+        try:
+            value = _normalize_config_value(env_key, value)
+        except ValueError:
+            continue
+        if value in (None, ""):
+            continue
         config[env_key] = value
         resolved_from[env_key] = source
 
@@ -293,17 +548,12 @@ def _apply_env_config(config, resolved_from):
             value = os.environ.get(alias)
             if not value:
                 continue
-            if env_key == "GOOGLE_GEMINI_BASE_URL":
-                try:
-                    value = _normalize_base_url(value)
-                except ValueError:
-                    continue
-                if not value:
-                    continue
-            else:
-                value = value.strip()
-                if not value:
-                    continue
+            try:
+                value = _normalize_config_value(env_key, value)
+            except ValueError:
+                continue
+            if value in (None, ""):
+                continue
             config[env_key] = value
             resolved_from[env_key] = f"env:{alias}"
             break
@@ -316,28 +566,146 @@ def _apply_dotenv_values(config, resolved_from, dotenv_values, source):
             value = dotenv_values.get(alias)
             if not value:
                 continue
-            if env_key == "GOOGLE_GEMINI_BASE_URL":
-                try:
-                    value = _normalize_base_url(value)
-                except ValueError:
-                    continue
-                if not value:
-                    continue
-            else:
-                value = value.strip()
-                if not value:
-                    continue
+            try:
+                value = _normalize_config_value(env_key, value)
+            except ValueError:
+                continue
+            if value in (None, ""):
+                continue
             config[env_key] = value
             resolved_from[env_key] = source
             break
+
+
+def _finalize_config(config, resolved_from):
+    """Infer provider-related defaults after merging explicit config sources."""
+    provider = config.get("BANANAHUB_PROVIDER")
+    if not provider:
+        if _is_truthy(config.get("GOOGLE_GENAI_USE_VERTEXAI")):
+            provider = PROVIDER_VERTEX_AI
+            provider_source = "inferred:GOOGLE_GENAI_USE_VERTEXAI"
+        elif config.get("GOOGLE_CLOUD_PROJECT") or config.get("GOOGLE_CLOUD_LOCATION"):
+            provider = PROVIDER_VERTEX_AI
+            provider_source = "inferred:google-cloud"
+        elif config.get("GOOGLE_GEMINI_BASE_URL"):
+            provider = PROVIDER_GEMINI_COMPATIBLE
+            provider_source = "inferred:base_url"
+        else:
+            provider = DEFAULT_PROVIDER
+            provider_source = "default"
+        config["BANANAHUB_PROVIDER"] = provider
+        resolved_from.setdefault("BANANAHUB_PROVIDER", provider_source)
+
+    transport = config.get("BANANAHUB_TRANSPORT")
+    if not transport:
+        config["BANANAHUB_TRANSPORT"] = DEFAULT_TRANSPORT_BY_PROVIDER.get(provider, TRANSPORT_GENAI)
+        resolved_from.setdefault("BANANAHUB_TRANSPORT", f"default:{provider}")
+
+    auth_mode = config.get("BANANAHUB_AUTH_MODE")
+    if not auth_mode:
+        if provider == PROVIDER_VERTEX_AI and not config.get("GEMINI_API_KEY"):
+            auth_mode = AUTH_MODE_ADC
+        else:
+            auth_mode = AUTH_MODE_API_KEY
+        config["BANANAHUB_AUTH_MODE"] = auth_mode
+        resolved_from.setdefault("BANANAHUB_AUTH_MODE", f"default:{provider}")
+
+    if provider == PROVIDER_VERTEX_AI and not config.get("GOOGLE_CLOUD_LOCATION"):
+        config["GOOGLE_CLOUD_LOCATION"] = DEFAULT_LOCATION
+        resolved_from.setdefault("GOOGLE_CLOUD_LOCATION", "default:vertex-ai")
+
+
+def _runtime_support_status(config):
+    """Return whether the current runtime can execute the configured provider."""
+    provider = config.get("BANANAHUB_PROVIDER", DEFAULT_PROVIDER)
+    transport = config.get("BANANAHUB_TRANSPORT", DEFAULT_TRANSPORT_BY_PROVIDER.get(provider, TRANSPORT_GENAI))
+    auth_mode = config.get("BANANAHUB_AUTH_MODE", AUTH_MODE_API_KEY)
+    reasons = []
+    capabilities = {
+        "generate": True,
+        "edit": True,
+        "models": True,
+        "healthcheck": True,
+    }
+
+    if provider in {PROVIDER_GOOGLE_AI_STUDIO, PROVIDER_GEMINI_COMPATIBLE}:
+        if transport != TRANSPORT_GENAI:
+            reasons.append(
+                f"provider '{provider}' requires transport '{TRANSPORT_GENAI}', not '{transport}'."
+            )
+        if auth_mode != AUTH_MODE_API_KEY:
+            reasons.append(
+                f"provider '{provider}' requires auth_mode '{AUTH_MODE_API_KEY}', not '{auth_mode}'."
+            )
+    elif provider == PROVIDER_VERTEX_AI:
+        if transport != TRANSPORT_GENAI:
+            reasons.append(
+                f"provider '{provider}' requires transport '{TRANSPORT_GENAI}', not '{transport}'."
+            )
+        if auth_mode not in {AUTH_MODE_API_KEY, AUTH_MODE_ADC}:
+            reasons.append(
+                f"provider '{provider}' requires auth_mode '{AUTH_MODE_API_KEY}' or '{AUTH_MODE_ADC}', not '{auth_mode}'."
+            )
+    elif provider == PROVIDER_OPENAI_COMPATIBLE:
+        if transport != TRANSPORT_OPENAI_REST:
+            reasons.append(
+                f"provider '{provider}' requires transport '{TRANSPORT_OPENAI_REST}', not '{transport}'."
+            )
+        if auth_mode != AUTH_MODE_API_KEY:
+            reasons.append(
+                f"provider '{provider}' requires auth_mode '{AUTH_MODE_API_KEY}', not '{auth_mode}'."
+            )
+        capabilities["edit"] = False
+    else:
+        reasons.append(
+            f"provider '{provider}' is not recognized by this BananaHub runtime."
+        )
+
+    return {
+        "supported": not reasons,
+        "provider": provider,
+        "transport": transport,
+        "auth_mode": auth_mode,
+        "reasons": reasons,
+        "capabilities": capabilities,
+    }
+
+
+def _config_validation_errors(config):
+    """Return configuration issues that block runtime execution."""
+    errors = []
+    runtime_support = _runtime_support_status(config)
+    errors.extend(runtime_support["reasons"])
+
+    if runtime_support["auth_mode"] == AUTH_MODE_API_KEY and not config.get("GEMINI_API_KEY"):
+        errors.append("API key not found. Set GEMINI_API_KEY or GOOGLE_API_KEY, or persist api_key in BananaHub config.")
+
+    if runtime_support["provider"] == PROVIDER_GEMINI_COMPATIBLE and not config.get("GOOGLE_GEMINI_BASE_URL"):
+        errors.append("provider 'gemini-compatible' requires a base_url.")
+    if runtime_support["provider"] == PROVIDER_OPENAI_COMPATIBLE and not config.get("GOOGLE_GEMINI_BASE_URL"):
+        errors.append("provider 'openai-compatible' requires a base_url.")
+
+    return errors
+
+
+def _resolve_default_model(config, cli_model=None):
+    """Resolve the effective model with CLI args taking precedence over config."""
+    if cli_model:
+        return cli_model
+    configured = config.get("BANANAHUB_MODEL")
+    if configured:
+        return configured
+    return DEFAULT_MODEL
 
 
 def _load_explicit_config(path):
     """Load a user-provided config file, either JSON or .env style."""
     config = {}
     resolved_from = {}
+    raw_text = path.read_text()
+    stripped = raw_text.lstrip()
 
-    if path.suffix == ".json":
+    if path.suffix == ".json" or stripped.startswith("{"):
         data = _read_json_file(path, required=True)
         _apply_json_config(config, resolved_from, data, str(path))
         return config, resolved_from
@@ -351,6 +719,7 @@ def _load_merged_config(config_file=None):
     """Load effective config and return config plus source metadata."""
     config = {}
     resolved_from = {}
+    explicit_resolved_from = {}
     existing_sources = []
 
     if SKILL_CONFIG_PATH.exists():
@@ -374,12 +743,15 @@ def _load_merged_config(config_file=None):
         resolved_from.update(explicit_resolved_from)
         existing_sources.append(str(cf))
 
+    explicit_resolved_from.update(resolved_from)
+    _finalize_config(config, resolved_from)
+
     deduped_sources = []
     for source in existing_sources:
         if source not in deduped_sources:
             deduped_sources.append(source)
 
-    return config, resolved_from, deduped_sources
+    return config, resolved_from, deduped_sources, explicit_resolved_from
 
 
 def _load_persisted_config_for_write():
@@ -400,18 +772,21 @@ def load_config(config_file=None):
     2. Environment variables
     3. Skill config: ~/.config/bananahub/config.json
     """
-    config, _, _ = _load_merged_config(config_file=config_file)
-
-    if not config.get("GEMINI_API_KEY"):
+    config, _, _, _ = _load_merged_config(config_file=config_file)
+    errors = _config_validation_errors(config)
+    if errors:
         sources = [
             f"  --config <file>",
-            f"  env GEMINI_API_KEY",
-            f"  env GOOGLE_GEMINI_BASE_URL / GEMINI_BASE_URL / BANANAHUB_BASE_URL  (optional base_url)",
+            f"  env GEMINI_API_KEY / GOOGLE_API_KEY",
+            f"  env BANANAHUB_PROVIDER / BANANAHUB_AUTH_MODE / BANANAHUB_MODEL",
+            f"  env GOOGLE_GEMINI_BASE_URL / GEMINI_BASE_URL / BANANAHUB_BASE_URL",
+            f"  env GOOGLE_CLOUD_PROJECT / GOOGLE_CLOUD_LOCATION",
             f"  {SKILL_CONFIG_PATH}",
         ]
         print(json.dumps({
             "status": "error",
-            "error": "GEMINI_API_KEY not found in any config source",
+            "error": errors[0],
+            "details": errors,
             "searched": sources,
         }, ensure_ascii=False))
         sys.exit(1)
@@ -423,18 +798,332 @@ def get_client(config):
     """Create Gemini client from config."""
     from google import genai
 
-    api_key = config.get("GEMINI_API_KEY", "")
-    base_url = config.get("GOOGLE_GEMINI_BASE_URL", "")
-
-    if not api_key:
-        print(json.dumps({"status": "error", "error": "GEMINI_API_KEY not found in config"}))
+    runtime_support = _runtime_support_status(config)
+    if not runtime_support["supported"]:
+        print(json.dumps({
+            "status": "error",
+            "error": runtime_support["reasons"][0],
+            "details": runtime_support["reasons"],
+        }, ensure_ascii=False))
         sys.exit(1)
 
-    http_options = {"api_version": "v1beta"}
+    api_key = config.get("GEMINI_API_KEY", "")
+    base_url = config.get("GOOGLE_GEMINI_BASE_URL", "")
+    provider = runtime_support["provider"]
+    auth_mode = runtime_support["auth_mode"]
+
+    if auth_mode == AUTH_MODE_API_KEY and not api_key:
+        print(json.dumps({"status": "error", "error": "API key not found in config"}))
+        sys.exit(1)
+
+    if provider == PROVIDER_VERTEX_AI:
+        client_kwargs = {"vertexai": True}
+        if auth_mode == AUTH_MODE_API_KEY:
+            client_kwargs["api_key"] = api_key
+        else:
+            if config.get("GOOGLE_CLOUD_PROJECT"):
+                client_kwargs["project"] = config.get("GOOGLE_CLOUD_PROJECT")
+            if config.get("GOOGLE_CLOUD_LOCATION"):
+                client_kwargs["location"] = config.get("GOOGLE_CLOUD_LOCATION")
+        return genai.Client(**client_kwargs)
+
+    endpoint_resolution = _resolve_genai_endpoint(base_url)
+    http_options = {"api_version": endpoint_resolution["api_version"]}
     if base_url:
-        http_options["base_url"] = base_url
+        http_options["base_url"] = endpoint_resolution["resolved_base_url"]
 
     return genai.Client(api_key=api_key, http_options=http_options)
+
+
+def _list_config_sources(config_sources, explicit_resolved_from):
+    """Return a deduped human-readable list of actual config sources."""
+    ordered = list(config_sources)
+    for source in sorted(set(explicit_resolved_from.values())):
+        if source not in ordered:
+            ordered.append(source)
+    return ordered
+
+
+def _serialize_effective_config(config):
+    """Return a display-friendly config snapshot."""
+    runtime_support = _runtime_support_status(config)
+    endpoint_resolution = None
+    if runtime_support["transport"] == TRANSPORT_OPENAI_REST and config.get("GOOGLE_GEMINI_BASE_URL"):
+        endpoint_resolution = _resolve_openai_endpoint(config.get("GOOGLE_GEMINI_BASE_URL"))
+    elif config.get("GOOGLE_GEMINI_BASE_URL"):
+        endpoint_resolution = _resolve_genai_endpoint(config.get("GOOGLE_GEMINI_BASE_URL"))
+    return {
+        "provider": config.get("BANANAHUB_PROVIDER"),
+        "transport": config.get("BANANAHUB_TRANSPORT"),
+        "auth_mode": config.get("BANANAHUB_AUTH_MODE"),
+        "api_key": _mask_secret(config.get("GEMINI_API_KEY", "")) if config.get("GEMINI_API_KEY") else None,
+        "base_url": config.get("GOOGLE_GEMINI_BASE_URL") or None,
+        "model": config.get("BANANAHUB_MODEL") or None,
+        "project": config.get("GOOGLE_CLOUD_PROJECT") or None,
+        "location": config.get("GOOGLE_CLOUD_LOCATION") or None,
+        "capabilities": runtime_support["capabilities"],
+        "endpoint_resolution": endpoint_resolution,
+    }
+
+
+def _serialize_resolved_from(resolved_from):
+    """Map internal config keys to stable public field names."""
+    return {
+        "provider": resolved_from.get("BANANAHUB_PROVIDER"),
+        "transport": resolved_from.get("BANANAHUB_TRANSPORT"),
+        "auth_mode": resolved_from.get("BANANAHUB_AUTH_MODE"),
+        "api_key": resolved_from.get("GEMINI_API_KEY"),
+        "base_url": resolved_from.get("GOOGLE_GEMINI_BASE_URL"),
+        "model": resolved_from.get("BANANAHUB_MODEL"),
+        "project": resolved_from.get("GOOGLE_CLOUD_PROJECT"),
+        "location": resolved_from.get("GOOGLE_CLOUD_LOCATION"),
+    }
+
+
+def _load_persisted_config_snapshot():
+    """Return persisted config.json interpreted through the current config schema."""
+    if not SKILL_CONFIG_PATH.exists():
+        return None
+
+    stored = _read_json_file(SKILL_CONFIG_PATH)
+    persisted_config = {}
+    persisted_resolved_from = {}
+    _apply_json_config(persisted_config, persisted_resolved_from, stored, str(SKILL_CONFIG_PATH))
+    _finalize_config(persisted_config, persisted_resolved_from)
+    return _serialize_effective_config(persisted_config)
+
+
+def _join_endpoint(base_url, path):
+    """Join a configured base URL with a relative API path."""
+    return base_url.rstrip("/") + "/" + path.lstrip("/")
+
+
+def _extract_error_message_from_payload(payload, fallback):
+    """Extract a concise error message from a JSON API error payload."""
+    if isinstance(payload, dict):
+        error = payload.get("error")
+        if isinstance(error, dict):
+            message = error.get("message") or error.get("code")
+            if message:
+                return str(message)
+        if isinstance(error, str) and error.strip():
+            return error.strip()
+        message = payload.get("message")
+        if isinstance(message, str) and message.strip():
+            return message.strip()
+    return fallback
+
+
+def _http_json_request(method, url, headers=None, payload=None, timeout=60):
+    """Send a JSON HTTP request and parse the JSON response."""
+    body = None
+    request_headers = dict(headers or {})
+    if payload is not None:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        request_headers.setdefault("Content-Type", "application/json")
+
+    req = urlrequest.Request(url, data=body, headers=request_headers, method=method.upper())
+    try:
+        with urlrequest.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read()
+            if not raw:
+                return {}
+            return json.loads(raw.decode("utf-8"))
+    except urlerror.HTTPError as exc:
+        raw = exc.read()
+        fallback = f"{exc.code} {exc.reason}"
+        if raw:
+            try:
+                payload = json.loads(raw.decode("utf-8"))
+            except json.JSONDecodeError:
+                payload = None
+            fallback = _extract_error_message_from_payload(payload, fallback)
+        raise RuntimeError(f"HTTP {exc.code}: {fallback}") from exc
+    except urlerror.URLError as exc:
+        raise RuntimeError(f"Network error: {exc.reason}") from exc
+
+
+def _http_fetch_bytes(url, headers=None, timeout=60):
+    """Fetch raw bytes from an HTTP endpoint."""
+    req = urlrequest.Request(url, headers=headers or {}, method="GET")
+    try:
+        with urlrequest.urlopen(req, timeout=timeout) as resp:
+            return resp.read()
+    except urlerror.HTTPError as exc:
+        raise RuntimeError(f"HTTP {exc.code}: failed to fetch binary response") from exc
+    except urlerror.URLError as exc:
+        raise RuntimeError(f"Network error: {exc.reason}") from exc
+
+
+def _openai_headers(config):
+    """Return auth headers for OpenAI-compatible endpoints."""
+    api_key = config.get("GEMINI_API_KEY", "")
+    return {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+
+def _provider_error_hint(config, error_msg):
+    """Return a provider-specific hint for common endpoint/config mistakes."""
+    runtime_support = _runtime_support_status(config)
+    provider = runtime_support["provider"]
+    upper = str(error_msg).upper()
+
+    if provider == PROVIDER_GEMINI_COMPATIBLE:
+        if "404" in str(error_msg) or "NOT FOUND" in upper:
+            return (
+                "Check the gemini-compatible base_url. If the vendor docs show a `/v1beta` suffix, "
+                "you can paste it directly; BananaHub now normalizes the trailing API version automatically."
+            )
+        if "401" in str(error_msg) or "403" in str(error_msg):
+            return "Authentication failed. Check the gemini-compatible key and whether the relay expects a different auth header."
+
+    if provider == PROVIDER_OPENAI_COMPATIBLE:
+        if "404" in str(error_msg) or "NOT FOUND" in upper:
+            return (
+                "Check the openai-compatible base_url. Many gateways expect a `/v1` suffix. "
+                "For Google's official endpoint, use `https://generativelanguage.googleapis.com/v1beta/openai`."
+            )
+        if "401" in str(error_msg) or "403" in str(error_msg):
+            return "Authentication failed. Check the openai-compatible key and whether the endpoint expects a Bearer token."
+
+    if provider == PROVIDER_VERTEX_AI:
+        if "401" in str(error_msg) or "403" in str(error_msg):
+            return "Authentication failed. Check Vertex AI auth mode, ADC readiness, or project/location permissions."
+        if "404" in str(error_msg) or "NOT FOUND" in upper:
+            return "Check the Vertex AI location and model availability in that project/region."
+
+    if "401" in str(error_msg) or "403" in str(error_msg):
+        return "Authentication failed. Check your provider and API key config."
+    if "TIMEOUT" in upper or "CONNECT" in upper:
+        return "Network error. Check your connection and provider endpoint settings."
+    return ""
+
+
+def _build_openai_generation_payload(model, prompt, aspect_ratio, native_image_size=None):
+    """Build an OpenAI-compatible image generation payload."""
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "response_format": "b64_json",
+    }
+    warnings = []
+
+    if aspect_ratio and aspect_ratio != "1:1":
+        payload["extra_body"] = {"google": {"aspect_ratio": aspect_ratio}}
+
+    if native_image_size:
+        size_map = {
+            "1K": "1024x1024",
+            "2K": "2048x2048",
+            "4K": "4096x4096",
+        }
+        if aspect_ratio and aspect_ratio != "1:1":
+            warnings.append(
+                f"`--image-size {native_image_size}` is ignored for openai-compatible generation when aspect ratio is not 1:1."
+            )
+        else:
+            payload["size"] = size_map[native_image_size]
+
+    return payload, warnings
+
+
+def _list_openai_models(config):
+    """List models from an OpenAI-compatible endpoint."""
+    endpoint_resolution = _resolve_openai_endpoint(config.get("GOOGLE_GEMINI_BASE_URL", ""))
+    base_url = endpoint_resolution["resolved_base_url"]
+    payload = _http_json_request(
+        "GET",
+        _join_endpoint(base_url, "models"),
+        headers=_openai_headers(config),
+    )
+    entries = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(entries, list):
+        return []
+
+    models = []
+    for item in entries:
+        if not isinstance(item, dict):
+            continue
+        raw_model_id = str(item.get("id", "")).strip()
+        if not raw_model_id:
+            continue
+        model_id = _canonicalize_model(raw_model_id.removeprefix("models/"))
+        models.append({
+            "id": model_id,
+            "display_name": model_id,
+            "description": f"owned_by={item.get('owned_by', 'unknown')}",
+            "default": model_id == DEFAULT_MODEL,
+        })
+        if raw_model_id != model_id:
+            models[-1]["aliases"] = [raw_model_id]
+    return models
+
+
+def _openai_try_generate(config, model, prompt, aspect_ratio, image_size=None):
+    """Attempt image generation against an OpenAI-compatible endpoint."""
+    payload, warnings = _build_openai_generation_payload(model, prompt, aspect_ratio, native_image_size=image_size)
+    endpoint_resolution = _resolve_openai_endpoint(config.get("GOOGLE_GEMINI_BASE_URL", ""))
+    warnings = endpoint_resolution["warnings"] + warnings
+    response = _http_json_request(
+        "POST",
+        _join_endpoint(endpoint_resolution["resolved_base_url"], "images/generations"),
+        headers=_openai_headers(config),
+        payload=payload,
+        timeout=120,
+    )
+
+    items = response.get("data") if isinstance(response, dict) else None
+    if not isinstance(items, list) or not items:
+        return None, warnings, "No image generated. The endpoint returned an empty response."
+
+    first = items[0]
+    if not isinstance(first, dict):
+        return None, warnings, "No image generated. The endpoint returned an invalid payload."
+
+    b64_json = first.get("b64_json")
+    if b64_json:
+        try:
+            return base64.b64decode(b64_json), warnings, None
+        except Exception as exc:
+            return None, warnings, f"Failed to decode image bytes: {exc}"
+
+    image_url = first.get("url")
+    if image_url:
+        return _http_fetch_bytes(image_url), warnings, None
+
+    return None, warnings, "No image found in response."
+
+
+def _provider_healthcheck(config):
+    """Run a low-cost provider-aware healthcheck."""
+    runtime_support = _runtime_support_status(config)
+    if not runtime_support["supported"]:
+        raise RuntimeError(runtime_support["reasons"][0])
+
+    if runtime_support["transport"] == TRANSPORT_OPENAI_REST:
+        models = _list_openai_models(config)
+        return {
+            "mode": "models.list",
+            "response": f"{len(models)} model(s) visible",
+        }
+
+    client = get_client(config)
+    response = client.models.generate_content(
+        model=_resolve_default_model(config),
+        contents="Say OK",
+    )
+    text = ""
+    if response.candidates and response.candidates[0].content.parts:
+        for part in response.candidates[0].content.parts:
+            if hasattr(part, "text") and part.text:
+                text = part.text
+                break
+    return {
+        "mode": "generate_content",
+        "response": text[:100],
+    }
 
 
 def cmd_init(args):
@@ -442,13 +1131,16 @@ def cmd_init(args):
     checks = []
 
     # 1. Check config sources
-    config, resolved_from, config_sources = _load_merged_config(config_file=getattr(args, "config", None))
+    config, resolved_from, config_sources, explicit_resolved_from = _load_merged_config(
+        config_file=getattr(args, "config", None)
+    )
+    actual_sources = _list_config_sources(config_sources, explicit_resolved_from)
 
-    if config_sources or resolved_from:
+    if actual_sources:
         checks.append({
             "name": "config_source",
             "ok": True,
-            "sources": config_sources or sorted(set(resolved_from.values())),
+            "sources": actual_sources,
             "preferred_path": str(SKILL_CONFIG_PATH),
         })
     else:
@@ -458,9 +1150,36 @@ def cmd_init(args):
             "error": f"No config found. Create {SKILL_CONFIG_PATH} or use environment variables.",
         })
 
-    # 2. Check API key
+    # 2. Check provider resolution and runtime support
+    runtime_support = _runtime_support_status(config)
+    checks.append({
+        "name": "provider",
+        "ok": True,
+        "value": config.get("BANANAHUB_PROVIDER"),
+        "transport": runtime_support["transport"],
+        "auth_mode": runtime_support["auth_mode"],
+        "source": resolved_from.get("BANANAHUB_PROVIDER"),
+    })
+    checks.append({
+        "name": "runtime_support",
+        "ok": runtime_support["supported"],
+        "provider": runtime_support["provider"],
+        "transport": runtime_support["transport"],
+        "auth_mode": runtime_support["auth_mode"],
+        "capabilities": runtime_support["capabilities"],
+        "detail": runtime_support["reasons"] or ["ready"],
+    })
+
+    # 3. Check API key
     api_key = config.get("GEMINI_API_KEY", "")
-    if api_key:
+    if runtime_support["auth_mode"] != AUTH_MODE_API_KEY:
+        checks.append({
+            "name": "api_key",
+            "ok": True,
+            "value": "(not required for current auth_mode)",
+            "source": resolved_from.get("GEMINI_API_KEY"),
+        })
+    elif api_key:
         checks.append({
             "name": "api_key",
             "ok": True,
@@ -468,22 +1187,49 @@ def cmd_init(args):
             "source": resolved_from.get("GEMINI_API_KEY"),
         })
     else:
-        checks.append({"name": "api_key", "ok": False, "error": "GEMINI_API_KEY not found in any config source"})
+        checks.append({
+            "name": "api_key",
+            "ok": False,
+            "error": "API key not found in any config source. Set GEMINI_API_KEY or GOOGLE_API_KEY.",
+        })
 
-    # 3. Check base URL
+    # 4. Check endpoint / base URL
     base_url = config.get("GOOGLE_GEMINI_BASE_URL", "")
-    if base_url:
+    if runtime_support["provider"] == PROVIDER_GEMINI_COMPATIBLE and not base_url:
+        checks.append({
+            "name": "base_url",
+            "ok": False,
+            "error": "provider 'gemini-compatible' requires a base_url.",
+        })
+    elif base_url:
+        endpoint_resolution = (
+            _resolve_openai_endpoint(base_url)
+            if runtime_support["transport"] == TRANSPORT_OPENAI_REST
+            else _resolve_genai_endpoint(base_url)
+        )
         checks.append({
             "name": "base_url",
             "ok": True,
             "value": base_url,
             "source": resolved_from.get("GOOGLE_GEMINI_BASE_URL"),
-            "mode": "custom_endpoint",
+            "mode": "custom_endpoint" if runtime_support["provider"] != PROVIDER_GOOGLE_AI_STUDIO else "override_endpoint",
+            "resolved_base_url": endpoint_resolution.get("resolved_base_url"),
+            "api_version": endpoint_resolution.get("api_version"),
+            "warnings": endpoint_resolution.get("warnings"),
         })
     else:
         checks.append({"name": "base_url", "ok": True, "value": "(default Google endpoint)", "mode": "google_default"})
 
-    # 4. Check Python dependencies
+    # 5. Show configured default model when present
+    model = config.get("BANANAHUB_MODEL", "")
+    checks.append({
+        "name": "default_model",
+        "ok": True,
+        "value": model or DEFAULT_MODEL,
+        "source": resolved_from.get("BANANAHUB_MODEL") if model else f"default:{DEFAULT_MODEL}",
+    })
+
+    # 6. Check Python dependencies
     deps = {}
     for pkg, import_name in [("google-genai", "google.genai"), ("pillow", "PIL")]:
         try:
@@ -495,21 +1241,11 @@ def cmd_init(args):
 
     all_ok = all(c["ok"] for c in checks)
 
-    # 5. API connectivity test (only if basic checks pass)
+    # 7. API connectivity test (only if basic checks pass)
     if all_ok and not args.skip_test:
         try:
-            client = get_client(config)
-            response = client.models.generate_content(
-                model="gemini-3-pro-image-preview",
-                contents="Say OK",
-            )
-            text = ""
-            if response.candidates and response.candidates[0].content.parts:
-                for part in response.candidates[0].content.parts:
-                    if hasattr(part, "text") and part.text:
-                        text = part.text
-                        break
-            checks.append({"name": "api_test", "ok": True, "response": text[:100]})
+            healthcheck = _provider_healthcheck(config)
+            checks.append({"name": "api_test", "ok": True, **healthcheck})
         except Exception as e:
             checks.append({"name": "api_test", "ok": False, "error": str(e)[:200]})
 
@@ -519,20 +1255,47 @@ def cmd_init(args):
     if not all_ok:
         setup_guide = {
             "steps": [
-                "Option A (recommended): Persist config under the BananaHub brand:",
-                "  1. python3 bananahub.py config set --api-key <your_api_key>",
-                "  2. Optional custom endpoint: python3 bananahub.py config set --base-url https://your-gemini-compatible-endpoint",
+                "Option A (recommended): Google AI Studio / Gemini Developer API:",
+                "  1. Create or manage a key in Google AI Studio: https://aistudio.google.com/apikey",
+                "  2. python3 bananahub.py config set --provider google-ai-studio --api-key <your_api_key>",
+                "  3. Optional default model: python3 bananahub.py config set --model gemini-3.1-flash-image-preview",
+                f"  4. Review effective config: python3 bananahub.py config show",
+                "Option B: Gemini-compatible relay / proxy:",
+                "  1. python3 bananahub.py config set --provider gemini-compatible --base-url https://your-gemini-compatible-endpoint --api-key <your_proxy_key>",
+                "  2. Optional default model: python3 bananahub.py config set --model gemini-2.5-flash-image",
                 f"  3. Review effective config: python3 bananahub.py config show",
-                "Option B: Create BananaHub config manually:",
+                "Option C: OpenAI-compatible endpoint:",
+                "  1. python3 bananahub.py config set --provider openai-compatible --base-url https://your-openai-compatible-endpoint --api-key <your_api_key>",
+                "  2. Optional default model: python3 bananahub.py config set --model gemini-2.0-flash-preview-image-generation",
+                f"  3. Review effective config: python3 bananahub.py config show",
+                "Option D: Vertex AI:",
+                "  1. ADC mode: python3 bananahub.py config set --provider vertex-ai --auth-mode adc --project <gcp-project> --location global",
+                "  2. Express mode key: python3 bananahub.py config set --provider vertex-ai --auth-mode api_key --api-key <vertex_api_key>",
+                f"  3. Review effective config: python3 bananahub.py config show",
+                "Option E: Create BananaHub config manually:",
                 f"  1. mkdir -p {SKILL_CONFIG_DIR}",
                 f'  2. Create {SKILL_CONFIG_PATH} with:',
-                '     {"api_key": "your_api_key_here", "base_url": "https://your-gemini-compatible-endpoint"}',
-                "Option C: Use environment variables:",
-                "  export GEMINI_API_KEY=your_api_key_here",
-                "  export GOOGLE_GEMINI_BASE_URL=https://your-gemini-compatible-endpoint  # optional",
-                "  export GEMINI_BASE_URL=https://your-gemini-compatible-endpoint         # optional alias",
+                '     {"provider": "google-ai-studio", "api_key": "your_api_key_here", "model": "gemini-3-pro-image-preview"}',
+                "     or",
+                '     {"provider": "gemini-compatible", "api_key": "your_proxy_key_here", "base_url": "https://your-endpoint"}',
+                "     or",
+                '     {"provider": "openai-compatible", "api_key": "your_api_key_here", "base_url": "https://your-openai-endpoint"}',
+                "     or",
+                '     {"provider": "vertex-ai", "auth_mode": "adc", "project": "your-gcp-project", "location": "global"}',
+                "Option F: Use environment variables:",
+                "  export GOOGLE_API_KEY=your_api_key_here  # or GEMINI_API_KEY",
+                "  export BANANAHUB_PROVIDER=google-ai-studio",
+                "  export BANANAHUB_MODEL=gemini-3-pro-image-preview  # optional",
+                "  export BANANAHUB_PROVIDER=gemini-compatible        # for relay/proxy users",
+                "  export GOOGLE_GEMINI_BASE_URL=https://your-gemini-compatible-endpoint",
+                "  export BANANAHUB_PROVIDER=openai-compatible       # for OpenAI-style endpoints",
+                "  export BANANAHUB_PROVIDER=vertex-ai",
+                "  export BANANAHUB_AUTH_MODE=adc                     # or api_key",
+                "  export GOOGLE_CLOUD_PROJECT=your-gcp-project       # Vertex AI",
+                "  export GOOGLE_CLOUD_LOCATION=global                # Vertex AI",
                 "",
-                "Create or manage your API key in Google AI Studio: https://aistudio.google.com/apikey",
+                "OpenAI-compatible currently supports generate/models/init healthcheck.",
+                "Image edit is still only available on genai-backed providers.",
                 "Google pricing and quota policy may apply depending on model/account/region.",
                 "Install dependencies: pip install google-genai pillow",
                 f"Run again: python3 bananahub.py init",
@@ -551,20 +1314,18 @@ def cmd_init(args):
 
 def cmd_config_show(args):
     """Show effective and persisted config state."""
-    config, resolved_from, config_sources = _load_merged_config(config_file=getattr(args, "config", None))
+    config, resolved_from, config_sources, explicit_resolved_from = _load_merged_config(
+        config_file=getattr(args, "config", None)
+    )
+    runtime_support = _runtime_support_status(config)
 
     response = {
         "status": "ok",
         "preferred_path": str(SKILL_CONFIG_PATH),
-        "existing_sources": config_sources,
-        "effective_config": {
-            "api_key": _mask_secret(config.get("GEMINI_API_KEY", "")) if config.get("GEMINI_API_KEY") else None,
-            "base_url": config.get("GOOGLE_GEMINI_BASE_URL") or None,
-        },
-        "resolved_from": {
-            "api_key": resolved_from.get("GEMINI_API_KEY"),
-            "base_url": resolved_from.get("GOOGLE_GEMINI_BASE_URL"),
-        },
+        "existing_sources": _list_config_sources(config_sources, explicit_resolved_from),
+        "effective_config": _serialize_effective_config(config),
+        "resolved_from": _serialize_resolved_from(resolved_from),
+        "runtime_support": runtime_support,
         "custom_endpoint_enabled": bool(config.get("GOOGLE_GEMINI_BASE_URL")),
         "telemetry": {
             "enabled": not _telemetry_disabled(),
@@ -576,24 +1337,29 @@ def cmd_config_show(args):
         },
     }
 
-    if SKILL_CONFIG_PATH.exists():
-        stored = _read_json_file(SKILL_CONFIG_PATH)
-        response["persisted_config"] = {
-            "api_key": _mask_secret(str(stored.get("api_key", "")).strip()) if stored.get("api_key") else None,
-            "base_url": stored.get("base_url") or None,
-        }
-    else:
-        response["persisted_config"] = None
+    response["persisted_config"] = _load_persisted_config_snapshot()
 
     print(json.dumps(response, ensure_ascii=False, indent=2))
 
 
 def cmd_config_set(args):
     """Persist BananaHub config under ~/.config/bananahub/config.json."""
-    if not args.api_key and args.base_url is None and not args.clear_base_url:
+    if (
+        not args.api_key
+        and not args.provider
+        and not args.auth_mode
+        and not args.model
+        and args.project is None
+        and args.location is None
+        and args.base_url is None
+        and not args.clear_base_url
+        and not args.clear_model
+        and not args.clear_project
+        and not args.clear_location
+    ):
         print(json.dumps({
             "status": "error",
-            "error": "Nothing to update. Use --api-key, --base-url, or --clear-base-url.",
+            "error": "Nothing to update. Use --api-key, --provider, --auth-mode, --project, --location, --model, --base-url, or the clear-* flags.",
         }, ensure_ascii=False))
         sys.exit(1)
 
@@ -605,6 +1371,49 @@ def cmd_config_set(args):
 
     if args.api_key:
         persisted_config["api_key"] = args.api_key.strip()
+
+    explicit_provider = None
+    if args.provider:
+        try:
+            explicit_provider = _normalize_provider(args.provider)
+        except ValueError as exc:
+            print(json.dumps({"status": "error", "error": str(exc)}, ensure_ascii=False))
+            sys.exit(1)
+        persisted_config["provider"] = explicit_provider
+
+    if args.auth_mode:
+        try:
+            persisted_config["auth_mode"] = _normalize_auth_mode(args.auth_mode)
+        except ValueError as exc:
+            print(json.dumps({"status": "error", "error": str(exc)}, ensure_ascii=False))
+            sys.exit(1)
+
+    if args.clear_model:
+        persisted_config.pop("model", None)
+    elif args.model is not None:
+        normalized_model = _normalize_model(args.model)
+        if normalized_model:
+            persisted_config["model"] = normalized_model
+        else:
+            persisted_config.pop("model", None)
+
+    if args.clear_project:
+        persisted_config.pop("project", None)
+    elif args.project is not None:
+        normalized_project = str(args.project).strip()
+        if normalized_project:
+            persisted_config["project"] = normalized_project
+        else:
+            persisted_config.pop("project", None)
+
+    if args.clear_location:
+        persisted_config.pop("location", None)
+    elif args.location is not None:
+        normalized_location = str(args.location).strip()
+        if normalized_location:
+            persisted_config["location"] = normalized_location
+        else:
+            persisted_config.pop("location", None)
 
     if args.clear_base_url:
         persisted_config.pop("base_url", None)
@@ -619,6 +1428,45 @@ def cmd_config_set(args):
         else:
             persisted_config.pop("base_url", None)
 
+    if "provider" not in persisted_config:
+        persisted_config["provider"] = (
+            PROVIDER_GEMINI_COMPATIBLE if persisted_config.get("base_url") else PROVIDER_GOOGLE_AI_STUDIO
+        )
+
+    if args.base_url is not None and not explicit_provider and persisted_config.get("base_url"):
+        persisted_config["provider"] = PROVIDER_GEMINI_COMPATIBLE
+
+    if args.clear_base_url and not explicit_provider and persisted_config.get("provider") == PROVIDER_GEMINI_COMPATIBLE:
+        persisted_config["provider"] = PROVIDER_GOOGLE_AI_STUDIO
+
+    if persisted_config.get("provider") == PROVIDER_GEMINI_COMPATIBLE and not persisted_config.get("base_url"):
+        print(json.dumps({
+            "status": "error",
+            "error": "provider 'gemini-compatible' requires a base_url. Use --base-url or switch --provider google-ai-studio.",
+        }, ensure_ascii=False))
+        sys.exit(1)
+
+    if persisted_config.get("provider") == PROVIDER_OPENAI_COMPATIBLE and not persisted_config.get("base_url"):
+        print(json.dumps({
+            "status": "error",
+            "error": "provider 'openai-compatible' requires a base_url. Use --base-url to point at an OpenAI-compatible endpoint.",
+        }, ensure_ascii=False))
+        sys.exit(1)
+
+    if persisted_config.get("provider") == PROVIDER_GOOGLE_AI_STUDIO and persisted_config.get("base_url"):
+        print(json.dumps({
+            "status": "error",
+            "error": "provider 'google-ai-studio' cannot keep a custom base_url. Use --clear-base-url or switch --provider gemini-compatible.",
+        }, ensure_ascii=False))
+        sys.exit(1)
+
+    if persisted_config.get("provider") == PROVIDER_VERTEX_AI and persisted_config.get("base_url"):
+        print(json.dumps({
+            "status": "error",
+            "error": "provider 'vertex-ai' does not use base_url in this runtime. Clear it or switch provider.",
+        }, ensure_ascii=False))
+        sys.exit(1)
+
     try:
         _write_persisted_config(persisted_config)
     except OSError as exc:
@@ -628,10 +1476,7 @@ def cmd_config_set(args):
     print(json.dumps({
         "status": "ok",
         "file": str(SKILL_CONFIG_PATH),
-        "config": {
-            "api_key": _mask_secret(persisted_config.get("api_key", "")) if persisted_config.get("api_key") else None,
-            "base_url": persisted_config.get("base_url") or None,
-        },
+        "config": _load_persisted_config_snapshot(),
     }, ensure_ascii=False, indent=2))
 
 
@@ -832,7 +1677,22 @@ def _get_fallback_models(current_model):
 def cmd_models(args):
     """List available image generation models from the API, with fallback."""
     config = load_config(getattr(args, "config", None))
+    runtime_support = _runtime_support_status(config)
     try:
+        if runtime_support["transport"] == TRANSPORT_OPENAI_REST:
+            models = _list_openai_models(config)
+            filtered = [m for m in models if any(kw in m["id"].lower() for kw in IMAGE_KEYWORDS)]
+            if filtered:
+                models = filtered
+            elif not models:
+                models = FALLBACK_MODELS
+                print(json.dumps({"status": "ok", "source": "fallback", "models": models}, ensure_ascii=False))
+                return
+
+            models = sorted(models, key=lambda x: (not x["default"], x["id"]))
+            print(json.dumps({"status": "ok", "source": "api", "models": models}, ensure_ascii=False))
+            return
+
         client = get_client(config)
         api_models = {}
         for m in client.models.list(config={"page_size": 100}):
@@ -927,6 +1787,27 @@ def _try_edit(client, model, prompt, input_images, image_size=None):
     return image_part, text_parts, None
 
 
+def _default_output_path(prefix, model):
+    """Build the default output path for generated assets."""
+    output_dir = Path.cwd()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    model_short = model.replace("gemini-", "").replace("-preview", "").replace("-image-generation", "")
+    return output_dir / f"{prefix}_{model_short}_{timestamp}.png"
+
+
+def _save_png_bytes(image_bytes, output_path, resize_dims=None):
+    """Persist image bytes as PNG, optionally resizing first."""
+    from PIL import Image
+    import io
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    image = Image.open(io.BytesIO(image_bytes))
+    if resize_dims:
+        image = image.resize(resize_dims, Image.LANCZOS)
+    image.save(str(output_path), "PNG")
+    return image
+
+
 def cmd_edit(args):
     """Edit an existing image based on a text prompt, with automatic model fallback."""
     import io
@@ -935,6 +1816,18 @@ def cmd_edit(args):
         native_image_size, resize_dims, option_warnings = _resolve_image_request_options(args)
     except ValueError as e:
         print(json.dumps({"status": "error", "error": str(e)}, ensure_ascii=False))
+        sys.exit(1)
+
+    config_data = load_config(getattr(args, "config", None))
+    runtime_support = _runtime_support_status(config_data)
+    if not runtime_support["capabilities"].get("edit", False):
+        print(json.dumps({
+            "status": "error",
+            "error": (
+                f"provider '{runtime_support['provider']}' does not support image edit in this runtime yet. "
+                "Use google-ai-studio, gemini-compatible, or vertex-ai for edit."
+            ),
+        }, ensure_ascii=False))
         sys.exit(1)
 
     # Validate input image before importing heavy dependencies
@@ -992,13 +1885,12 @@ def cmd_edit(args):
             print(json.dumps({
                 "status": "error",
                 "error": f"Cannot read reference image {rp}: {e}",
-            }, ensure_ascii=False))
-            sys.exit(1)
+        }, ensure_ascii=False))
+        sys.exit(1)
 
-    config_data = load_config(getattr(args, "config", None))
     client = get_client(config_data)
 
-    requested_model_input = args.model or DEFAULT_MODEL
+    requested_model_input = _resolve_default_model(config_data, args.model)
     requested_model = _canonicalize_model(requested_model_input)
     prompt = args.prompt
     no_fallback = getattr(args, "no_fallback", False)
@@ -1111,10 +2003,8 @@ def cmd_edit(args):
         hint = "Content was blocked by safety filters. Try rephrasing the prompt."
     elif "QUOTA" in error_msg.upper() or "429" in error_msg:
         hint = "API quota exceeded. Wait a moment and try again."
-    elif "401" in error_msg or "403" in error_msg:
-        hint = "Authentication failed. Check your GEMINI_API_KEY config."
-    elif "TIMEOUT" in error_msg.upper() or "CONNECT" in error_msg.upper():
-        hint = "Network error. Check your connection and base_url config."
+    else:
+        hint = _provider_error_hint(config_data, error_msg)
 
     result = {
         "status": "error",
@@ -1171,9 +2061,6 @@ def _try_generate(client, model, prompt, aspect_ratio, image_size=None):
 
 def cmd_generate(args):
     """Generate an image from a text prompt, with automatic model fallback."""
-    from PIL import Image
-    import io
-
     try:
         native_image_size, resize_dims, option_warnings = _resolve_image_request_options(args)
     except ValueError as e:
@@ -1181,9 +2068,12 @@ def cmd_generate(args):
         sys.exit(1)
 
     config = load_config(getattr(args, "config", None))
-    client = get_client(config)
+    runtime_support = _runtime_support_status(config)
+    client = None
+    if runtime_support["transport"] == TRANSPORT_GENAI:
+        client = get_client(config)
 
-    requested_model_input = args.model or DEFAULT_MODEL
+    requested_model_input = _resolve_default_model(config, args.model)
     requested_model = _canonicalize_model(requested_model_input)
     prompt = args.prompt
     aspect_ratio = args.aspect or "1:1"
@@ -1206,13 +2096,25 @@ def cmd_generate(args):
         # Retry same model up to (1 + retries) times before fallback
         for attempt in range(1 + retries):
             try:
-                image_part, gen_error = _try_generate(
-                    client,
-                    model,
-                    prompt,
-                    aspect_ratio,
-                    image_size=native_image_size,
-                )
+                extra_warnings = []
+                if runtime_support["transport"] == TRANSPORT_OPENAI_REST:
+                    image_bytes, extra_warnings, gen_error = _openai_try_generate(
+                        config,
+                        model,
+                        prompt,
+                        aspect_ratio,
+                        image_size=native_image_size,
+                    )
+                    image_part = None
+                else:
+                    image_part, gen_error = _try_generate(
+                        client,
+                        model,
+                        prompt,
+                        aspect_ratio,
+                        image_size=native_image_size,
+                    )
+                    image_bytes = image_part.inline_data.data if image_part else None
 
                 if gen_error:
                     # Content policy / no image — not a server error, don't fallback
@@ -1229,20 +2131,9 @@ def cmd_generate(args):
                 if user_output:
                     output_path = Path(user_output)
                 else:
-                    output_dir = Path.cwd()
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    model_short = model.replace("gemini-", "").replace("-preview", "").replace("-image-generation", "")
-                    output_path = output_dir / f"bananahub_{model_short}_{timestamp}.png"
+                    output_path = _default_output_path("bananahub", model)
 
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-
-                # Save image
-                image = Image.open(io.BytesIO(image_part.inline_data.data))
-
-                if resize_dims:
-                    image = image.resize(resize_dims, Image.LANCZOS)
-
-                image.save(str(output_path), "PNG")
+                image = _save_png_bytes(image_bytes, output_path, resize_dims=resize_dims)
 
                 result = {
                     "status": "ok",
@@ -1259,8 +2150,9 @@ def cmd_generate(args):
                     result["native_image_size"] = native_image_size
                 if resize_dims:
                     result["post_resize"] = f"{resize_dims[0]}x{resize_dims[1]}"
-                if option_warnings:
-                    result["warnings"] = option_warnings
+                combined_warnings = option_warnings + extra_warnings
+                if combined_warnings:
+                    result["warnings"] = combined_warnings
                 if model != requested_model:
                     result["fallback_from"] = requested_model
                 result["fallback_chain"] = models_to_try
@@ -1297,10 +2189,8 @@ def cmd_generate(args):
         hint = "Content was blocked by safety filters. Try rephrasing the prompt."
     elif "QUOTA" in error_msg.upper() or "429" in error_msg:
         hint = "API quota exceeded. Wait a moment and try again."
-    elif "401" in error_msg or "403" in error_msg:
-        hint = "Authentication failed. Check your GEMINI_API_KEY config."
-    elif "TIMEOUT" in error_msg.upper() or "CONNECT" in error_msg.upper():
-        hint = "Network error. Check your connection and base_url config."
+    else:
+        hint = _provider_error_hint(config, error_msg)
 
     result = {
         "status": "error",
@@ -1371,9 +2261,25 @@ def main():
     config_show_parser.set_defaults(config_handler=cmd_config_show)
 
     config_set_parser = config_subparsers.add_parser("set", help="Write ~/.config/bananahub/config.json")
+    config_set_parser.add_argument(
+        "--provider",
+        choices=sorted(SUPPORTED_PROVIDERS),
+        help="Provider to persist",
+    )
+    config_set_parser.add_argument(
+        "--auth-mode",
+        choices=sorted(SUPPORTED_AUTH_MODES),
+        help="Auth mode to persist: api_key or adc",
+    )
     config_set_parser.add_argument("--api-key", help="API key to persist in BananaHub config")
     config_set_parser.add_argument("--base-url", help="Custom Gemini-compatible base URL to persist")
+    config_set_parser.add_argument("--project", help="Google Cloud project to persist")
+    config_set_parser.add_argument("--location", help="Google Cloud location to persist")
+    config_set_parser.add_argument("--model", help="Default model to persist")
     config_set_parser.add_argument("--clear-base-url", action="store_true", help="Remove stored custom base URL")
+    config_set_parser.add_argument("--clear-project", action="store_true", help="Remove stored Google Cloud project")
+    config_set_parser.add_argument("--clear-location", action="store_true", help="Remove stored Google Cloud location")
+    config_set_parser.add_argument("--clear-model", action="store_true", help="Remove stored default model")
     config_set_parser.set_defaults(config_handler=cmd_config_set)
 
     telemetry_parser = subparsers.add_parser("telemetry", help="BananaHub usage telemetry helpers")

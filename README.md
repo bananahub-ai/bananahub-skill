@@ -69,7 +69,7 @@ After installation, run the init command to configure your environment:
 
 This setup flow will:
 - Check Python dependencies (`google-genai`, `pillow`)
-- Guide you through setting up your Gemini API key in one of the supported config sources
+- Guide you through choosing a provider path and writing the matching config
 - Test API connectivity once the basics are ready
 
 If you prefer to preinstall dependencies manually:
@@ -84,17 +84,41 @@ Persistent config helpers:
 # Show effective config resolution
 python3 scripts/bananahub.py config show
 
-# Persist API key under ~/.config/bananahub/config.json
-python3 scripts/bananahub.py config set --api-key <your_api_key>
+# Google AI Studio / Gemini Developer API
+python3 scripts/bananahub.py config set --provider google-ai-studio --api-key <your_api_key>
 
-# Persist a custom Gemini-compatible relay/proxy endpoint
-python3 scripts/bananahub.py config set --base-url https://your-gemini-compatible-endpoint
+# Gemini-compatible relay / proxy
+python3 scripts/bananahub.py config set --provider gemini-compatible --base-url https://your-gemini-compatible-endpoint --api-key <your_proxy_key>
+
+# OpenAI-compatible endpoint
+python3 scripts/bananahub.py config set --provider openai-compatible --base-url https://your-openai-compatible-endpoint --api-key <your_api_key>
+
+# Vertex AI
+python3 scripts/bananahub.py config set --provider vertex-ai --auth-mode adc --project <gcp-project> --location global
+
+# Optional: persist a default model
+python3 scripts/bananahub.py config set --model gemini-3.1-flash-image-preview
 
 # Clear the stored custom endpoint and go back to Google's default endpoint
 python3 scripts/bananahub.py config set --clear-base-url
 ```
 
-BananaHub supports custom `base_url` values for Gemini-compatible relay/proxy endpoints. You can provide them through `~/.config/bananahub/config.json` or environment variables such as `GOOGLE_GEMINI_BASE_URL`, `GEMINI_BASE_URL`, or `BANANAHUB_BASE_URL`.
+BananaHub now supports 4 provider paths:
+
+- `google-ai-studio`: recommended default, supports `generate / edit / models / init`
+- `gemini-compatible`: Gemini-style relays/proxies, supports `generate / edit / models / init`
+- `vertex-ai`: enterprise / GCP path, supports `generate / edit / models / init`
+- `openai-compatible`: OpenAI-style gateways, currently supports `generate / models / init`
+
+`openai-compatible` does not support `edit` in the current runtime. Use `google-ai-studio`, `gemini-compatible`, or `vertex-ai` for image editing.
+
+For third-party `base_url` inputs:
+
+- `gemini-compatible`: you can paste either the provider root or a URL that already ends in `/v1beta`; BananaHub normalizes the trailing API version so it does not get duplicated
+- `openai-compatible`: if you provide a bare host, BananaHub will try to append `/v1`; for Google's official OpenAI-compatible endpoint it will resolve to `https://generativelanguage.googleapis.com/v1beta/openai`
+- If the provider docs already give a full endpoint path, prefer pasting it verbatim
+
+You can provide these settings through `~/.config/bananahub/config.json` or environment variables such as `GOOGLE_API_KEY`, `GEMINI_API_KEY`, `BANANAHUB_PROVIDER`, `BANANAHUB_AUTH_MODE`, `BANANAHUB_MODEL`, `GOOGLE_GEMINI_BASE_URL`, `GEMINI_BASE_URL`, `BANANAHUB_BASE_URL`, `GOOGLE_CLOUD_PROJECT`, and `GOOGLE_CLOUD_LOCATION`.
 
 **Create/manage your Gemini API key**: https://aistudio.google.com/apikey
 

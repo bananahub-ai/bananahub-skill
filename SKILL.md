@@ -20,6 +20,7 @@ metadata:
       - pillow
     env:
       - GEMINI_API_KEY
+      - GOOGLE_API_KEY
   primaryEnv: GEMINI_API_KEY
 user_invocable: true
 ---
@@ -53,12 +54,19 @@ Generate or edit Gemini images from non-English or mixed-language requests insid
 - **Template format spec**: `references/template-format-spec.md` — detailed field definitions, repo structure, sample requirements
 - **API config** (priority high→low):
   1. `--config <file>` CLI flag
-  2. Environment variables (`GEMINI_API_KEY`, `GOOGLE_GEMINI_BASE_URL`, `GEMINI_BASE_URL`, `BANANAHUB_BASE_URL`)
-  3. Skill config: `~/.config/bananahub/config.json` (`{"api_key": "...", "base_url": "..."}`)
+  2. Environment variables (`GOOGLE_API_KEY`, `GEMINI_API_KEY`, `BANANAHUB_PROVIDER`, `BANANAHUB_AUTH_MODE`, `BANANAHUB_MODEL`, `GOOGLE_GEMINI_BASE_URL`, `GEMINI_BASE_URL`, `BANANAHUB_BASE_URL`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`)
+  3. Skill config: `~/.config/bananahub/config.json`
+     - `{"provider": "google-ai-studio", "api_key": "...", "model": "gemini-3-pro-image-preview"}`
+     - `{"provider": "gemini-compatible", "api_key": "...", "base_url": "https://..."}`
+     - `{"provider": "openai-compatible", "api_key": "...", "base_url": "https://...", "model": "gemini-2.0-flash-preview-image-generation"}`
+     - `{"provider": "vertex-ai", "auth_mode": "adc", "project": "...", "location": "global"}`
   4. Persistent config helpers:
      - `python3 {baseDir}/scripts/bananahub.py config show`
-     - `python3 {baseDir}/scripts/bananahub.py config set --api-key <key>`
-     - `python3 {baseDir}/scripts/bananahub.py config set --base-url https://your-gemini-compatible-endpoint`
+     - `python3 {baseDir}/scripts/bananahub.py config set --provider google-ai-studio --api-key <key>`
+     - `python3 {baseDir}/scripts/bananahub.py config set --provider gemini-compatible --base-url https://your-gemini-compatible-endpoint --api-key <key>`
+     - `python3 {baseDir}/scripts/bananahub.py config set --provider openai-compatible --base-url https://your-openai-compatible-endpoint --api-key <key>`
+     - `python3 {baseDir}/scripts/bananahub.py config set --provider vertex-ai --auth-mode adc --project <gcp-project> --location global`
+     - `python3 {baseDir}/scripts/bananahub.py config set --model gemini-3.1-flash-image-preview`
      - `python3 {baseDir}/scripts/bananahub.py config set --clear-base-url`
 - **Output directory**: current working directory (where the skill is invoked)
 
@@ -69,6 +77,16 @@ Before executing any command other than `help`, check if the environment is read
 2. If not → inform the user and automatically start the init flow (read `references/init-guide.md`)
 3. If config exists but a generation command fails with auth/dependency errors → suggest running `init`
 4. Persist new config into `~/.config/bananahub/config.json`
+5. Treat `google-ai-studio` as the default provider
+6. Supported runtime providers:
+   - `google-ai-studio`: generate / edit / models / init
+   - `gemini-compatible`: generate / edit / models / init
+   - `vertex-ai`: generate / edit / models / init
+   - `openai-compatible`: generate / models / init
+7. `openai-compatible` does **not** support `edit` in the current runtime; if the user asks to edit, route them to `google-ai-studio`, `gemini-compatible`, or `vertex-ai`
+8. Endpoint normalization rules:
+   - `gemini-compatible`: if the user pastes a URL ending in `/v1beta`, keep it conceptually but normalize the trailing version during runtime so it is not duplicated
+   - `openai-compatible`: if the user pastes a bare host, the runtime may append `/v1`; for Google's official endpoint, resolve it to `/v1beta/openai`
 
 ## Command Routing
 
