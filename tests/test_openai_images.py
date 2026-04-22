@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+import base64
+import importlib.util
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+
+spec = importlib.util.spec_from_file_location(
+    "providers.openai_images", ROOT / "scripts" / "providers" / "openai_images.py"
+)
+openai_images = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(openai_images)
+
+
+def test_build_generation_payload_maps_image_size_and_options():
+    payload, warnings = openai_images.build_generation_payload(
+        "gpt-image-2",
+        "a clean product photo",
+        "1:1",
+        native_image_size="2K",
+        quality="high",
+        background="transparent",
+        output_format="png",
+        output_compression=80,
+    )
+
+    assert warnings == []
+    assert payload == {
+        "model": "gpt-image-2",
+        "prompt": "a clean product photo",
+        "response_format": "b64_json",
+        "size": "2048x2048",
+        "quality": "high",
+        "background": "transparent",
+        "output_format": "png",
+        "output_compression": 80,
+    }
+
+
+def test_build_generation_payload_prefers_explicit_openai_size():
+    payload, warnings = openai_images.build_generation_payload(
+        "gpt-image-2",
+        "wide banner",
+        "16:9",
+        native_image_size="4K",
+        openai_size="1536x1024",
+    )
+
+    assert payload["size"] == "1536x1024"
+    assert payload["extra_body"] == {"google": {"aspect_ratio": "16:9"}}
+    assert warnings == [
+        "`--image-size 4K` is ignored for openai-compatible generation when aspect ratio is not 1:1."
+    ]
+
+
+def test_try_generate_posts_to_images_generations():
+    calls = []
+    image_bytes = b"fake-png"
+    encoded = base64.b64encode(image_bytes).decode("ascii")
+
+    def fake_http_json_request(method, url, headers, payload=None, timeout=None):
+        calls.append(
+            {
+                "method": method,
+                "url": url,
+                "headers": headers,
+                "payload": payload,
+                "timeout": timeout,
+            }
+        )
+        return {"data": [{"b64_json": encoded}]}
+
+    original = openai_images.http_json_request
+    openai_images.http_json_request = fake_http_json_request
+    try:
+        result, warnings, error = openai_images.try_generate(
+            {"BANANAHUB_PROVIDER": "openai", "OPENAI_API_KEY": "test-key"},
+            "gpt-image-2",
+            "draw a precise icon",
+            "1:1",
+            openai_images.resolve_openai_endpoint_for_test,
+            openai_size="1024x1024",
+        )
+    finally:
+        openai_images.http_json_request = original
+
+    assert result == image_bytes
+    assert warnings == []
+    assert error is None
+    assert calls[0]["method"] == "POST"
+    assert calls[0]["url"] == "https://api.openai.com/v1/images/generations"
+    assert calls[0]["headers"]["Authorization"] == "Bearer test-key"
+    assert calls[0]["payload"]["size"] == "1024x1024"
+    assert calls[0]["timeout"] == 120
+
+
+def test_try_edit_posts_multipart_with_mask_and_refs():
+    calls = []
+    image_bytes = b"edited"
+    encoded = base64.b64encode(image_bytes).decode("ascii")
+
+    def fake_http_multipart_request(method, url, headers, fields, files, timeout=None):
+        calls.append(
+            {
+                "method": method,
+                "url": url,
+                "headers": headers,
+                "fields": fields,
+                "files": files,
+                "timeout": timeout,
+            }
+        )
+        return {"data": [{"b64_json": encoded}]}
+
+    original = openai_images.http_multipart_request
+    openai_images.http_multipart_request = fake_http_multipart_request
+    try:
+        result, warnings, error = openai_images.try_edit(
+            {"BANANAHUB_PROVIDER": "openai", "OPENAI_API_KEY": "test-key"},
+            "gpt-image-2",
+            "replace background",
+            "input.png",
+            openai_images.resolve_openai_endpoint_for_test,
+            ref_paths=["ref.png"],
+            mask_path="mask.png",
+            size="1024x1024",
+        )
+    finally:
+        openai_images.http_multipart_request = original
+
+    assert result == image_bytes
+    assert warnings == []
+    assert error is None
+    assert calls[0]["url"] == "https://api.openai.com/v1/images/edits"
+    assert calls[0]["fields"] == {
+        "model": "gpt-image-2",
+        "prompt": "replace background",
+        "response_format": "b64_json",
+        "size": "1024x1024",
+    }
+    assert calls[0]["files"] == [
+        {"field": "image", "path": "input.png"},
+        {"field": "image", "path": "ref.png"},
+        {"field": "mask", "path": "mask.png"},
+    ]
+
+
+def resolve_openai_endpoint_for_test(base_url):
+    return {"configured_base_url": base_url, "resolved_base_url": base_url, "warnings": []}
+
+
+openai_images.resolve_openai_endpoint_for_test = resolve_openai_endpoint_for_test
+
+
+if __name__ == "__main__":
+    test_build_generation_payload_maps_image_size_and_options()
+    test_build_generation_payload_prefers_explicit_openai_size()
+    test_try_generate_posts_to_images_generations()
+    test_try_edit_posts_multipart_with_mask_and_refs()
+    print("ok")

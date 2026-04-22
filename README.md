@@ -2,7 +2,7 @@
 
 [简体中文说明](./README.zh-CN.md)
 
-A skill for Gemini image generation and editing that can normalize non-English image requests into optimized English prompts by default, then generate or edit images from the same `/bananahub` entry point.
+A provider-backed image generation and editing skill that normalizes non-English image requests into optimized English prompts by default, then routes generation or editing through Gemini/Nano Banana, OpenAI GPT Image, or compatible providers from the same `/bananahub` entry point.
 
 ## Quick Start
 
@@ -19,13 +19,13 @@ claude skill install https://github.com/bananahub-ai/bananahub-skill
 
 ## Why BananaHub
 
-BananaHub is one installable skill that keeps the whole Gemini image workflow together:
+BananaHub is one installable skill that keeps the whole image workflow together across multiple provider families:
 
 - **One command surface** — optimize, generate, edit, iterate, use templates, and discover more from `/bananahub`
 - **Progressive disclosure guidance** — low-risk cleanup stays quiet; the skill only asks when ambiguity would materially change the result
 - **Reusable template ecosystem** — built-ins cover common jobs, while BananaHub lets users discover and install extra prompt or workflow modules without splitting the base skill into multiple SKUs
 
-BananaHub's prompt and workflow design is distilled from official Google / Gemini image-generation docs, prompt guides, and public best practices, then adapted into a constraint-first, agent-native workflow. See [official source references](references/official-sources.md).
+BananaHub's prompt and workflow design keeps a shared constraint-first core, then lazy-loads provider-specific guidance for Gemini/Nano Banana, OpenAI GPT Image, and chat/completions-compatible image endpoints. See [official source references](references/official-sources.md), [capability registry](references/capability-registry.md), and [model registry](references/model-registry.json).
 
 ## What It Does
 
@@ -90,8 +90,14 @@ python3 scripts/bananahub.py config set --provider google-ai-studio --api-key <y
 # Gemini-compatible relay / proxy
 python3 scripts/bananahub.py config set --provider gemini-compatible --base-url https://your-gemini-compatible-endpoint --api-key <your_proxy_key>
 
+# OpenAI GPT Image
+python3 scripts/bananahub.py config set --provider openai --api-key <your_openai_api_key> --model gpt-image-2
+
 # OpenAI-compatible endpoint
 python3 scripts/bananahub.py config set --provider openai-compatible --base-url https://your-openai-compatible-endpoint --api-key <your_api_key>
+
+# Chat/completions-compatible image endpoint
+python3 scripts/bananahub.py config set --provider chatgpt-compatible --base-url https://your-chat-endpoint --api-key <your_api_key> --model gpt-5.4
 
 # Vertex AI
 python3 scripts/bananahub.py config set --provider vertex-ai --auth-mode adc --project <gcp-project> --location global
@@ -103,22 +109,23 @@ python3 scripts/bananahub.py config set --model gemini-3.1-flash-image-preview
 python3 scripts/bananahub.py config set --clear-base-url
 ```
 
-BananaHub now supports 4 provider paths:
+BananaHub now supports these provider paths:
 
 - `google-ai-studio`: recommended default, supports `generate / edit / models / init`
 - `gemini-compatible`: Gemini-style relays/proxies, supports `generate / edit / models / init`
 - `vertex-ai`: enterprise / GCP path, supports `generate / edit / models / init`
-- `openai-compatible`: OpenAI-style gateways, currently supports `generate / models / init`
-
-`openai-compatible` does not support `edit` in the current runtime. Use `google-ai-studio`, `gemini-compatible`, or `vertex-ai` for image editing.
+- `openai`: OpenAI-native GPT Image path, supports `generate / edit / mask edit / models / init`
+- `openai-compatible`: OpenAI-style gateways, capability-dependent; do not assume edit or mask edit
+- `chatgpt-compatible`: chat/completions-style endpoints that return images inside assistant messages; generation is best-effort. Endpoints that proxy protected image URLs through a public object store such as R2 can be downloaded directly; protected URLs that cannot be fetched still return `status: partial` with reference metadata.
 
 For third-party `base_url` inputs:
 
 - `gemini-compatible`: you can paste either the provider root or a URL that already ends in `/v1beta`; BananaHub normalizes the trailing API version so it does not get duplicated
 - `openai-compatible`: if you provide a bare host, BananaHub will try to append `/v1`; for Google's official OpenAI-compatible endpoint it will resolve to `https://generativelanguage.googleapis.com/v1beta/openai`
+- `chatgpt-compatible`: BananaHub normalizes the configured base URL to an OpenAI-style `/v1` root before calling `/chat/completions`
 - If the provider docs already give a full endpoint path, prefer pasting it verbatim
 
-You can provide these settings through `~/.config/bananahub/config.json` or environment variables such as `GOOGLE_API_KEY`, `GEMINI_API_KEY`, `BANANAHUB_PROVIDER`, `BANANAHUB_AUTH_MODE`, `BANANAHUB_MODEL`, `GOOGLE_GEMINI_BASE_URL`, `GEMINI_BASE_URL`, `BANANAHUB_BASE_URL`, `GOOGLE_CLOUD_PROJECT`, and `GOOGLE_CLOUD_LOCATION`.
+You can provide these settings through `~/.config/bananahub/config.json` or environment variables such as `GOOGLE_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, `BANANAHUB_CHATGPT_API_KEY`, `BANANAHUB_PROVIDER`, `BANANAHUB_AUTH_MODE`, `BANANAHUB_MODEL`, `GOOGLE_GEMINI_BASE_URL`, `GEMINI_BASE_URL`, `BANANAHUB_BASE_URL`, `OPENAI_BASE_URL`, `BANANAHUB_CHATGPT_BASE_URL`, `GOOGLE_CLOUD_PROJECT`, and `GOOGLE_CLOUD_LOCATION`.
 
 **Create/manage your Gemini API key**: https://aistudio.google.com/apikey
 

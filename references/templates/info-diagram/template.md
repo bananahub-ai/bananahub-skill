@@ -15,11 +15,42 @@ models:
   - name: gemini-3-pro-image-preview
     tested: false
     quality: expected-best
+providers:
+  - id: google-ai-studio
+    family: gemini-image
+    models:
+      - id: gemini-3-pro-image-preview
+        aliases: [nano-banana-pro]
+        quality: best
+        prompt_variant: gemini
+      - id: gemini-3.1-flash-image-preview
+        aliases: [nano-banana-2]
+        quality: good
+        prompt_variant: gemini
+  - id: openai
+    family: gpt-image
+    models:
+      - id: gpt-image-2
+        quality: untested
+        prompt_variant: gpt-image
+      - id: gpt-image-1
+        quality: untested
+        prompt_variant: gpt-image
+capabilities:
+  generation: true
+  edit: false
+  mask_edit: false
+prompt_variants:
+  default: base
+  gemini: prompt-gemini
+  gpt-image: prompt-gpt-image
 aspect: "4:3"
 difficulty: intermediate
 samples:
   - file: samples/sample-3.1-flash-01.png
+    provider: google-ai-studio
     model: gemini-3.1-flash-image-preview
+    prompt_variant: gemini
     prompt: "Create a clean infographic about how coffee is made from bean to cup, in 5 steps: Harvest, Roast, Grind, Brew, Serve. Vertical flowchart layout with the 5 steps arranged top-to-bottom, each step inside a rounded box, connected by directional arrows. Modern flat vector design with rounded icons beside each step, using a warm pastel color palette of 3-4 colors. Each step has a bold short label in clear sans-serif font. Light gray background with subtle grid pattern. Professional information design with clear visual hierarchy, easy to read at a glance."
     aspect: "4:3"
 created: 2026-03-24
@@ -34,6 +65,18 @@ updated: 2026-03-24
 
 ```
 Create a clean infographic about {{topic|how coffee is made from bean to cup, in 5 steps: "Harvest", "Roast", "Grind", "Brew", "Serve"}}. {{layout|Vertical flowchart layout with the 5 steps arranged top-to-bottom, each step inside a rounded box, connected by directional arrows}}. {{style|Modern flat vector design with rounded icons beside each step, using a warm pastel color palette of 3-4 colors}}. {{labels|Each step has a bold short label (3-5 words max) in clear sans-serif font}}. {{background|Light gray background with subtle grid pattern}}. Professional information design with clear visual hierarchy, easy to read at a glance.
+```
+
+## Prompt Template: gemini
+
+```
+Create a clean infographic about {{topic|how coffee is made from bean to cup, in 5 steps: "Harvest", "Roast", "Grind", "Brew", "Serve"}}. {{layout|Vertical flowchart layout with the 5 steps arranged top-to-bottom, each step inside a rounded box, connected by directional arrows}}. {{style|Modern flat vector design with rounded icons beside each step, using a warm pastel color palette of 3-4 colors}}. {{labels|Each step has a bold short label (3-5 words max) in clear sans-serif font}}. {{background|Light gray background with subtle grid pattern}}. Keep icons simple, spacing generous, and arrows non-overlapping. Professional information design with clear visual hierarchy, easy to read at a glance.
+```
+
+## Prompt Template: gpt-image
+
+```
+Design a clean infographic about {{topic|how coffee is made from bean to cup, in 5 steps: "Harvest", "Roast", "Grind", "Brew", "Serve"}}. Use {{layout|a vertical top-to-bottom flowchart with exactly 5 rounded cards connected by simple arrows}}. Use {{style|flat vector shapes, minimal rounded icons, and a warm 3-4 color pastel palette}} on {{background|a light gray background with a subtle grid pattern}}. Put only the required short labels in the graphic: {{labels|"Harvest", "Roast", "Grind", "Brew", "Serve"}}. Avoid paragraphs, tiny text, decorative clutter, crossed connectors, extra labels, and invented facts.
 ```
 
 ## Variables
@@ -80,3 +123,4 @@ Create a clean infographic about {{topic|how coffee is made from bean to cup, in
 - AI-generated text may contain errors — always verify factual content in the output
 - For complex diagrams (>8 nodes), consider breaking into multiple simpler diagrams or using dedicated tools (Mermaid, draw.io)
 - Generate the layout/structure first, then add data — this produces cleaner results than trying to do both at once
+- GPT Image prompts should constrain the exact label set and explicitly forbid extra labels or paragraphs

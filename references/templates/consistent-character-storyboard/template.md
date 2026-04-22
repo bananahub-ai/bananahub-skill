@@ -15,11 +15,32 @@ models:
   - name: gemini-3-pro-image-preview
     tested: false
     quality: expected-best
+providers:
+  - id: google-ai-studio
+    family: gemini-image
+    models:
+      - id: gemini-3-pro-image-preview
+        aliases: [nano-banana-pro]
+        quality: best
+        prompt_variant: gemini
+      - id: gemini-3.1-flash-image-preview
+        aliases: [nano-banana-2]
+        quality: good
+        prompt_variant: gemini
+capabilities:
+  generation: true
+  edit: true
+  mask_edit: false
+prompt_variants:
+  default: base
+  gemini: prompt-gemini
 aspect: "1:1"
 difficulty: intermediate
 samples:
   - file: samples/sample-3-pro-01.png
+    provider: google-ai-studio
     model: gemini-3-pro-image-preview
+    prompt_variant: gemini
     prompt: "Using the provided reference image of Miso, create a 3x3 contact sheet. All 9 cells must show the same Siamese cat character, the same teal neck scarf with a small gold bell, the same soft pastel interior environment, and the same warm daylight lighting. Each cell should use a different natural pose or camera angle while keeping facial structure, fur pattern, blue eyes, proportions, palette, and background continuity stable across the grid. Avoid duplicate frames. Keep the tone cute, clean, and IP-friendly."
     aspect: "1:1"
 created: 2026-03-31
@@ -101,6 +122,14 @@ Using the approved reference image of {{subject_name|Aki}}, repair continuity dr
 ```text
 Plan a compact storyboard exploration for {{subject_name|Aki}}. Keep identity, outfit, palette, and setting stable. Propose {{board_mode|a 3x3 contact sheet}} focused on {{exploration_goal|camera angle range, pose variety, and emotional progression}}. The plan should avoid drastic scene changes and should move only one storytelling variable at a time.
 ```
+
+## Provider Prompt Rules
+
+### Provider Variant: gemini
+
+Use the prompt blocks above as written for Gemini/Nano Banana. Keep descriptive scene language, exact labels, and locked invariants explicit. Avoid generic SD/MJ quality tags.
+
+GPT Image is not listed for this workflow yet. Do not route this workflow to GPT Image unless a tested `gpt-image` variant is added.
 
 ## Success Checks
 

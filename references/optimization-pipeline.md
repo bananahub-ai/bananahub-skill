@@ -135,6 +135,8 @@ After profile matching, check if any installed template closely matches the user
    ```
    Matching template found: cyberpunk-city (Cyberpunk City Nightscape)
    Fit: ⭐⭐⭐ (3 keyword hits)
+   Recommended model: gpt-image-2
+   Why: generation-led visual task with strong first-pass fidelity requirements
 
    Choose:
    1. Use template
@@ -146,6 +148,9 @@ After profile matching, check if any installed template closely matches the user
    If user chooses regular → continue normal Phase 3.
    When the matched template has `type: prompt`, activation means assembling the prompt and generating.
    When the matched template has `type: workflow`, activation means loading the workflow context and guiding the user step-by-step.
+   When switching into `use <template-id>`, also surface the recommended provider/model if the template supports multiple model families:
+   - `gpt-image-2` for generation-led, high-fidelity new image creation
+   - Gemini/Nano Banana for edit/reference/consistency-heavy flows
 5. **Direct mode** — auto-use best match if score ≥ 3, otherwise regular flow
 6. **Raw mode** — skip template matching entirely
 
@@ -163,10 +168,11 @@ Flow:
 2. Prefer curated BananaHub results by default; expand to merged/community results only when needed
 3. Rank by relevance first, then `pinned` / `featured` / curated / official
 4. Show a shortlist instead of a full dump
-5. Ask once whether to install the best match, inspect another candidate, or continue regular optimization
-6. If the user installs a candidate, immediately record `selected` via the telemetry helper, then switch to the normal `use <template-id>` flow
-7. If the best match is already `distribution: bundled`, record `selected` before continuing with the local `use <template-id>` flow
-8. Do not load the full remote template body during broad search unless a shortlist candidate needs closer inspection
+5. For each shortlisted candidate, show the recommended provider/model and one-line reason
+6. Ask once whether to install the best match, inspect another candidate, or continue regular optimization
+7. If the user installs a candidate, immediately record `selected` via the telemetry helper, then switch to the normal `use <template-id>` flow
+8. If the best match is already `distribution: bundled`, record `selected` before continuing with the local `use <template-id>` flow
+9. Do not load the full remote template body during broad search unless a shortlist candidate needs closer inspection
 
 **Special routing note**:
 - `手绘笔记 / sketchnote / 白板风 / 手账风` is **not** a standalone Profile
@@ -218,6 +224,24 @@ Before adding any enhancement, classify the subject into one of these categories
 
 **Key principles**:
 - **Ambiguous terms are worse than no terms** — if a word could be misinterpreted (e.g., "optical eyes" on a robot → model renders human eyes), do not add it. Only use unambiguous descriptors.
+
+## Model Recommendation Layer
+
+After profile matching and before final generation, apply BananaHub's model recommendation layer when the user did not explicitly lock provider/model:
+
+- Prefer `gpt-image-2` for:
+  - launch visuals
+  - README/OG covers
+  - information graphics and text-sensitive layout generation
+  - premium product or marketing visuals where first-pass fidelity matters more than edit iteration
+- Prefer Gemini/Nano Banana (`gemini-3-pro-image-preview` first) for:
+  - edit-heavy tasks
+  - multiple reference images
+  - style consistency propagation
+  - character consistency and storyboard continuation
+  - workflows that were only validated on Gemini/Nano Banana
+- If a template/provider matrix disagrees with the general heuristic, the template's validated support wins.
+- If BananaHub auto-selects a model, state the recommendation explicitly instead of behaving as if the choice was obvious.
 - **"Cute" ≠ anthropomorphic** — for non-humanoid subjects, express cuteness through: rounded shapes, bright/pastel colors, compact proportions, soft lighting, playful composition. NOT through adding faces, expressions, or chibi features.
 - **Less is more for known characters** — the model's built-in knowledge of famous characters is usually more accurate than our text descriptions. Trust it.
 - **A reference is not a lock by itself** — if exact consistency matters, write the keep-unchanged constraints explicitly instead of assuming the model will infer them

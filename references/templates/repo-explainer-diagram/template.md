@@ -16,16 +16,49 @@ models:
   - name: gemini-3.1-flash-image-preview
     tested: false
     quality: good
+providers:
+  - id: google-ai-studio
+    family: gemini-image
+    models:
+      - id: gemini-3-pro-image-preview
+        aliases: [nano-banana-pro]
+        quality: best
+        prompt_variant: gemini
+      - id: gemini-3.1-flash-image-preview
+        aliases: [nano-banana-2]
+        quality: good
+        prompt_variant: gemini
+  - id: openai
+    family: gpt-image
+    models:
+      - id: gpt-image-2
+        quality: untested
+        prompt_variant: gpt-image
+      - id: gpt-image-1
+        quality: untested
+        prompt_variant: gpt-image
+capabilities:
+  generation: true
+  edit: false
+  mask_edit: false
+prompt_variants:
+  default: base
+  gemini: prompt-gemini
+  gpt-image: prompt-gpt-image
 aspect: "4:3"
 difficulty: intermediate
 category: docs
 samples:
   - file: samples/sample-3-pro-01.png
+    provider: google-ai-studio
+    prompt_variant: gemini
     model: gemini-3-pro-image-preview
     prompt: "Create a clean explainer diagram for BananaHub. Title: 'BananaHub Architecture'. Use a left-to-right architecture layout. Include these exact labeled blocks: 'BananaHub Skill', 'BananaHub CLI', 'Hub API', 'Catalog Site', 'GitHub Templates'. Show only these verified relationships: the skill loads built-in and installed templates, the CLI installs templates from GitHub, the Hub API reports discovered installs, and the catalog site indexes curated and discovered templates. Keep labels short, high-contrast, and easy to read. Use a modern flat product-doc aesthetic with restrained blue, teal, and warm gray accents. Prioritize clarity over decoration."
     aspect: "4:3"
   - file: samples/sample-3-pro-02.png
+    provider: google-ai-studio
     model: gemini-3-pro-image-preview
+    prompt_variant: gemini
     prompt: "Create a clean repository explainer diagram for BananaHub. Title: 'BananaHub Template Flow'. Use a top-to-bottom workflow layout. Include these exact labeled blocks: 'User Request', 'Prompt Optimization', 'Profile Match', 'Template Suggestion', 'Generate or Edit'. Show only these verified relationships: the user request goes into prompt optimization, optimization leads to profile matching, profile matching can trigger template suggestion, and the final step is generate or edit. Keep labels short, high-contrast, and easy to read. Use a crisp flat explainer-card aesthetic with soft grid background, restrained teal and banana-gold accents, and simple directional connectors."
     aspect: "4:3"
 created: 2026-03-31
@@ -86,6 +119,16 @@ Create a clean explainer diagram for {{project_name|this project}}. Title: "{{ti
 ```text
 Keep the same diagram topic and the same exact labels. Repair only the structure and readability. Strengthen the reading order, prevent label overlap, increase contrast, and make the connectors unambiguous. Do not add new modules or extra copy.
 ```
+
+## Provider Prompt Rules
+
+### Provider Variant: gemini
+
+Use the prompt blocks above as written for Gemini/Nano Banana. Keep descriptive scene language, exact labels, and locked invariants explicit. Avoid generic SD/MJ quality tags.
+
+### Provider Variant: gpt-image
+
+Use the same workflow steps, but rewrite each generation prompt with explicit constraints, exact text limits, and negative constraints for extra labels, duplicated parts, clutter, and cropped edges. Do not use a Gemini-tuned prompt block directly with GPT Image unless this workflow step has been tested with GPT Image.
 
 ## Success Checks
 

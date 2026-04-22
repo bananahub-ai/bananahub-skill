@@ -16,20 +16,55 @@ models:
   - name: gemini-3.1-flash-image-preview
     tested: false
     quality: good
+providers:
+  - id: google-ai-studio
+    family: gemini-image
+    models:
+      - id: gemini-3-pro-image-preview
+        aliases: [nano-banana-pro]
+        quality: best
+        prompt_variant: gemini
+      - id: gemini-3.1-flash-image-preview
+        aliases: [nano-banana-2]
+        quality: good
+        prompt_variant: gemini
+  - id: openai
+    family: gpt-image
+    models:
+      - id: gpt-image-2
+        quality: untested
+        prompt_variant: gpt-image
+      - id: gpt-image-1
+        quality: untested
+        prompt_variant: gpt-image
+capabilities:
+  generation: true
+  edit: false
+  mask_edit: false
+prompt_variants:
+  default: base
+  gemini: prompt-gemini
+  gpt-image: prompt-gpt-image
 aspect: "16:9"
 difficulty: intermediate
 category: docs
 samples:
   - file: samples/sample-3-pro-01.png
+    provider: google-ai-studio
+    prompt_variant: gemini
     model: gemini-3-pro-image-preview
     prompt: "Create a clean article-support workflow diagram. Use only these verified facts as truth: the workflow starts by extracting verified claims from the article; it plans image slots before any generation; it generates one image at a time and reviews fidelity. Show exactly three grouped stages in a left-to-right reading order. The only text allowed anywhere in the image is: \"Extract claims\", \"Plan slots\", and \"Generate + review\". Do not add a title, caption, paragraph, badge, or any extra words. Use a restrained product-doc editorial aesthetic with warm paper-white background, ink-black linework, and muted banana-gold and teal accents. Keep the image text-light, high-contrast, and easy to understand in under ten seconds."
     aspect: "16:9"
   - file: samples/sample-3-pro-02.png
+    provider: google-ai-studio
+    prompt_variant: gemini
     model: gemini-3-pro-image-preview
     prompt: "Create a compact article-support planning card. Use only these verified facts as truth: not every paragraph needs a picture; some sections want a flowchart; some need a framework card; some are better left text-only. Use a clean three-column comparison card with obvious visual separation. The only text allowed anywhere in the image is: \"Flowchart\", \"Framework card\", and \"Text only\". Do not add a title, caption, paragraph, badge, or any extra words. Use a restrained product-doc editorial aesthetic with warm paper-white background, ink-black linework, and muted banana-gold and teal accents. Keep the image text-light, high-contrast, and understandable in under ten seconds."
     aspect: "4:3"
   - file: samples/sample-3-pro-03.png
+    provider: google-ai-studio
     model: gemini-3-pro-image-preview
+    prompt_variant: gemini
     prompt: "Create a scene-led editorial cover image for an article about planning illustrations. Use only these verified facts as truth: good article visuals should clarify the writing instead of distracting from it; the workflow reads the article first; image slots are decided later. Show a calm editorial desk scene with one printed article page as the focal object, a pencil, and three small unlabeled thumbnail frames placed nearby to suggest planning. No text anywhere in the image. Use a restrained warm editorial aesthetic with paper-white surfaces, ink-black details, and muted banana-gold and teal accents. Keep the composition clean, thoughtful, and suitable as a section cover rather than a technical diagram."
     aspect: "3:4"
 created: 2026-04-03
@@ -92,6 +127,16 @@ Create an article-support visual for {{article_title|this article}}. The image s
 ```text
 Keep the same article claim and the same locked facts. Repair only clarity, reading order, and article fidelity. Shorten labels, remove decorative elements that are not supported by the text, and make the main concept understandable in under ten seconds. Do not introduce new claims or extra copy.
 ```
+
+## Provider Prompt Rules
+
+### Provider Variant: gemini
+
+Use the prompt blocks above as written for Gemini/Nano Banana. Keep descriptive scene language, exact labels, and locked invariants explicit. Avoid generic SD/MJ quality tags.
+
+### Provider Variant: gpt-image
+
+Use the same workflow steps, but rewrite each generation prompt with explicit constraints, exact text limits, and negative constraints for extra labels, duplicated parts, clutter, and cropped edges. Do not use a Gemini-tuned prompt block directly with GPT Image unless this workflow step has been tested with GPT Image.
 
 ## Success Checks
 

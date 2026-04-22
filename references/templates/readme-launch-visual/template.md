@@ -16,16 +16,49 @@ models:
   - name: gemini-3.1-flash-image-preview
     tested: false
     quality: good
+providers:
+  - id: google-ai-studio
+    family: gemini-image
+    models:
+      - id: gemini-3-pro-image-preview
+        aliases: [nano-banana-pro]
+        quality: best
+        prompt_variant: gemini
+      - id: gemini-3.1-flash-image-preview
+        aliases: [nano-banana-2]
+        quality: good
+        prompt_variant: gemini
+  - id: openai
+    family: gpt-image
+    models:
+      - id: gpt-image-2
+        quality: untested
+        prompt_variant: gpt-image
+      - id: gpt-image-1
+        quality: untested
+        prompt_variant: gpt-image
+capabilities:
+  generation: true
+  edit: false
+  mask_edit: false
+prompt_variants:
+  default: base
+  gemini: prompt-gemini
+  gpt-image: prompt-gpt-image
 aspect: "16:9"
 difficulty: intermediate
 category: marketing
 samples:
   - file: samples/sample-3-pro-01.png
+    provider: google-ai-studio
+    prompt_variant: gemini
     model: gemini-3-pro-image-preview
     prompt: "Create a launch visual for BananaHub. Use the exact headline 'Agent-native image workflows' as the dominant text. Add the supporting line 'Prompt optimization, templates, and editing in one flow' in a smaller secondary position. The asset target is a homepage hero banner. Use a bold terminal-meets-product-doc composition with layered prompt cards flowing into generated image frames. Keep the design high-contrast, clean, and readable at a glance. Use a modern editorial product aesthetic with warm banana gold, ink black, and paper white. Do not invent extra UI labels or filler marketing copy."
     aspect: "16:9"
   - file: samples/sample-3-pro-02.png
+    provider: google-ai-studio
     model: gemini-3-pro-image-preview
+    prompt_variant: gemini
     prompt: "Create an OG cover image for BananaHub. Keep the exact headline 'Build image workflows, not prompt piles'. Use minimal supporting text: 'Templates, editing, and iterative guidance for Gemini images'. Composition should be optimized for a wide social card, with clear breathing room around the text and one memorable visual metaphor based on modular prompt cards snapping into a guided workflow. Strong hierarchy, strong contrast, no clutter. Use a clean editorial product aesthetic with banana gold accents, black typography, and subtle paper texture."
     aspect: "16:9"
 created: 2026-03-31
@@ -85,6 +118,16 @@ Create an OG cover image for {{product_name|this product}}. Keep the exact headl
 ```text
 Keep the same composition and general art direction. Repair only the copy rendering and text hierarchy. Preserve the exact locked words, increase readability, reduce extra text, and do not introduce new labels or slogans.
 ```
+
+## Provider Prompt Rules
+
+### Provider Variant: gemini
+
+Use the prompt blocks above as written for Gemini/Nano Banana. Keep descriptive scene language, exact labels, and locked invariants explicit. Avoid generic SD/MJ quality tags.
+
+### Provider Variant: gpt-image
+
+Use the same workflow steps, but rewrite each generation prompt with explicit constraints, exact text limits, and negative constraints for extra labels, duplicated parts, clutter, and cropped edges. Do not use a Gemini-tuned prompt block directly with GPT Image unless this workflow step has been tested with GPT Image.
 
 ## Success Checks
 

@@ -16,12 +16,43 @@ models:
   - name: gemini-3.1-flash-image-preview
     tested: false
     quality: good
+providers:
+  - id: google-ai-studio
+    family: gemini-image
+    models:
+      - id: gemini-3-pro-image-preview
+        aliases: [nano-banana-pro]
+        quality: best
+        prompt_variant: gemini
+      - id: gemini-3.1-flash-image-preview
+        aliases: [nano-banana-2]
+        quality: good
+        prompt_variant: gemini
+  - id: openai
+    family: gpt-image
+    models:
+      - id: gpt-image-2
+        quality: untested
+        prompt_variant: gpt-image
+      - id: gpt-image-1
+        quality: untested
+        prompt_variant: gpt-image
+capabilities:
+  generation: true
+  edit: true
+  mask_edit: false
+prompt_variants:
+  default: base
+  gemini: prompt-gemini
+  gpt-image: prompt-gpt-image
 aspect: "1:1"
 difficulty: intermediate
 category: branding
 samples:
   - file: samples/sample-3-pro-01.png
+    provider: google-ai-studio
     model: gemini-3-pro-image-preview
+    prompt_variant: gemini
     prompt: "Create an icon-first logo system sample for BananaHub. Use one bold black peeled-banana symbol as the approved core mark, keep it centered and high-contrast on a warm off-white presentation board, and show two outputs from the same baseline: one square app-icon-safe symbol and one clean website lockup with the exact wordmark 'BananaHub'. Keep the palette monochrome, flat, and minimal. No gradients, no mascots, no extra copy beyond the locked brand name and short usage labels."
     aspect: "1:1"
 created: 2026-04-01
@@ -98,6 +129,16 @@ Keep the same logo idea and simplify it for tiny sizes. Produce a monochrome ver
 ```text
 Use the approved baseline logo as the only source of truth. Keep the exact silhouette, exact peel count, exact rounded fruit flesh shape, exact border thickness, and exact spacing unchanged. Change only {{allowed_delta|the background to solid black and the mark to white}}. Do not redraw, reinterpret, restyle, reshape, recompose, or add details.
 ```
+
+## Provider Prompt Rules
+
+### Provider Variant: gemini
+
+Use the prompt blocks above as written for Gemini/Nano Banana. Keep descriptive scene language, exact labels, and locked invariants explicit. Avoid generic SD/MJ quality tags.
+
+### Provider Variant: gpt-image
+
+Use the same workflow steps, but rewrite each generation prompt with explicit constraints, exact text limits, and negative constraints for extra labels, duplicated parts, clutter, and cropped edges. Do not use a Gemini-tuned prompt block directly with GPT Image unless this workflow step has been tested with GPT Image.
 
 ## Success Checks
 

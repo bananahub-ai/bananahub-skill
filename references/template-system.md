@@ -29,7 +29,7 @@ Templates are agent-consumed `template.md` documents with two layers:
 
 ```text
 Tier 1 — Frontmatter (always parsed for listing/matching, ~50 tokens)
-  id, type, title, profile, tags, models, aspect, difficulty
+  id, type, title, profile, tags, models/providers, capabilities, aspect, difficulty
   → used by: templates list, auto-matching, BananaHub catalog
 
 Tier 2 — Body (loaded only when template is activated via `use`, ~200-600 tokens)
@@ -52,6 +52,9 @@ Required fields for listing and auto-matching:
 | `profile` | Target enhancement profile or grouping bucket | `photo` |
 | `tags` | Bilingual keywords for search + auto-matching | `[分镜, storyboard, consistency]` |
 | `models` | Tested models with quality rating (best/good/ok) | see below |
+| `providers` | Schema v2 provider/model compatibility matrix | `google-ai-studio`, `openai` |
+| `capabilities` | Generation/edit/mask-edit routing flags | `{generation: true, edit: false}` |
+| `prompt_variants` | Mapping from provider/model family to body prompt blocks | `gemini`, `gpt-image` |
 | `aspect` | Recommended aspect ratio | `"1:1"` |
 | `difficulty` | Target user level | `beginner` / `intermediate` / `advanced` |
 | `samples` | Optional sample image metadata (file, model, prompt) | see below |
@@ -60,6 +63,9 @@ Required fields for listing and auto-matching:
 Notes:
 
 - Missing `type` should be treated as `prompt` for backward compatibility.
+- Legacy `models` is display/backward compatibility metadata. Schema v2 routing must prefer `providers`.
+- A model must only use the prompt block named by its `prompt_variant`. Do not silently feed a Gemini/Nano Banana prompt variant to GPT Image or an OpenAI prompt variant to Gemini.
+- If the selected provider/model is not listed in `providers`, do not apply the template as-is. Either ask for confirmation to use the neutral `## Prompt Template`, choose a supported provider/model, or skip the template.
 - `workflow` templates may omit sample images during early iteration, but published workflows should still include representative samples when possible.
 
 ## Body (Tier 2 — Activation)
@@ -71,8 +77,9 @@ The body structure depends on `type`.
 Body sections must follow this exact order:
 
 1. **`## Prompt Template`** — the core prompt with `{{variable|default}}` slots inside a code block
-2. **`## Variables`** — pipe table mapping each variable to its default and description
-3. **`## Tips`** — bullet list of concrete, actionable tips
+2. Optional provider blocks: **`## Prompt Template: gemini`**, **`## Prompt Template: gpt-image`**, or another `prompt_variant` named by frontmatter
+3. **`## Variables`** — pipe table mapping each variable to its default and description
+4. **`## Tips`** — bullet list of concrete, actionable tips
 
 ### `type: workflow`
 
@@ -92,11 +99,12 @@ These rules keep templates compact and agent-friendly:
 | Rule | Rationale |
 |------|-----------|
 | **Total body < 140 lines** | Keeps activation cost low |
-| **Prompt templates should keep the main prompt < 80 words** | Gemini quality degrades with overly long single-shot prompts |
+| **Prompt templates should keep each provider block compact** | Long, mixed-provider prompts degrade routing quality |
 | **Workflow templates should prefer 4-8 steps** | Too many steps become vague and hard to execute |
 | **Variables use snake_case** | Consistent parsing when variables are used |
 | **Defaults are complete phrases/sentences** | Gemini understands narrative language better than keyword fragments |
-| **No "8K", "ultra-detailed", "masterpiece"** | SD/MJ quality tags do not improve Gemini output |
+| **No cross-provider prompt leakage** | Gemini-specific and GPT Image-specific tactics differ materially |
+| **No "8K", "ultra-detailed", "masterpiece" in Gemini blocks** | SD/MJ quality tags do not improve Gemini output |
 | **Tips and checks are specific and testable** | Avoid vague advice |
 | **Tags include both Chinese and English** | Enables auto-matching from bilingual user input |
 
@@ -151,11 +159,12 @@ Find more: /bananahub discover <request>
 
 1. Search both template paths for `<name>/template.md`
 2. Parse frontmatter and body
-3. Display title, type, models, aspect ratio, and tags
-4. If `type: prompt`, show the prompt template, variables table, and tips
+3. Display title, type, provider/model matrix, capabilities, aspect ratio, and tags
+4. If `type: prompt`, show the neutral prompt template plus provider-specific prompt variants
 5. If `type: workflow`, show the goal, inputs, steps, prompt blocks, and success checks
 6. If `samples` entries exist in frontmatter, show sample image paths
-7. End with usage hint: `/bananahub use <name>`
+7. If the template has a recommended provider/model path, show it explicitly
+8. End with usage hint: `/bananahub use <name>`
 
 ## `use <template-id> [custom description]` — Activate Template
 
@@ -167,15 +176,32 @@ Find more: /bananahub discover <request>
 
 ### Activation for `type: prompt`
 
-1. Read `## Prompt Template`
-2. Extract variables from `{{variable|default}}`
-3. Apply user input:
+1. Resolve the effective provider and model from user override, config, template `providers`, and model aliases
+2. Select the prompt block:
+   - Use the model entry's `prompt_variant` block, e.g. `## Prompt Template: gemini` or `## Prompt Template: gpt-image`
+   - If no provider-specific block exists, use neutral `## Prompt Template` only when the template marks that provider/model as supported
+   - If the provider/model is unsupported, do not run the template without explicit user confirmation
+3. Extract variables from the selected prompt block's `{{variable|default}}`
+4. Apply user input:
    - If no description is provided, use defaults
    - If a description is provided, map user intent to matching variables and leave the rest unchanged
-4. Apply template defaults for `aspect` and best-tested `model` unless the user overrides them
-5. Generate using the normal image flow, and pass template telemetry flags into the script command so success can be reported automatically:
+5. Apply template defaults for `aspect` and the best supported model in the selected provider family unless the user overrides them
+6. Generate using the normal image flow, and pass template telemetry flags into the script command so success can be reported automatically:
    `--template-id <id> --template-repo <repo> --template-distribution bundled|remote --template-source curated|discovered`
-6. Display template attribution
+7. Display template attribution and the provider/model/prompt_variant used
+8. If the provider/model was recommended rather than user-forced, state the reason in one short sentence
+
+Provider selection rules:
+
+- Prefer the user's explicit provider/model when it is listed in `providers`
+- Otherwise prefer the configured default provider when the template supports it
+- Otherwise use BananaHub's recommendation policy:
+  - prefer `openai / gpt-image-2` for new high-quality generation when the template supports OpenAI and the task is primarily generation-first
+  - prefer `google-ai-studio / gemini-3-pro-image-preview` for edit-heavy, reference-heavy, or consistency-heavy workflows
+  - then choose the highest-quality provider/model entry in this order: `best`, `good`, `ok`, `untested`
+- Never use fallback across provider families inside a template unless the user explicitly opts in
+- If `capabilities.edit` is false, do not route edit requests through that template even if generation is supported
+- When BananaHub chooses a recommended provider/model automatically, state that choice explicitly before or alongside the result instead of hiding it
 
 ### Activation for `type: workflow`
 
@@ -189,6 +215,12 @@ Find more: /bananahub discover <request>
 8. For follow-up edits, explicitly state the locked invariants and the one allowed delta for the current round
 9. If a later step is a deterministic derivative rather than a creative reinterpretation, prefer a local deterministic transform instead of re-calling the model
 10. Stop after each meaningful milestone if the user wants to review before continuing
+
+Workflow model routing rules:
+
+- For new visual directions, launch visuals, information graphics, README covers, and other generation-led outputs, prefer `gpt-image-2` when the workflow supports OpenAI.
+- For local-image editing, reference-image blending, style propagation, and character/asset consistency, prefer Gemini/Nano Banana unless the workflow has a tested GPT-specific path.
+- If a workflow only declares Gemini support, say so explicitly instead of implying that GPT Image should work.
 
 For workflow activation, `use <template-id>` means "start or continue this guided workflow", not "immediately fire one prompt".
 
@@ -226,14 +258,18 @@ Ask the user:
 4. "哪些输入必须提供，哪些可以默认？" → identify variables or workflow inputs
 5. "目标用户是谁？新手还是有经验的？" → difficulty
 6. If the template is iterative: "一旦某一版被接受，哪些元素必须完全不变？每轮只允许改什么？" → determine baseline-lock and allowed-delta rules
+7. "这个模板要支持哪些模型/供应商？是否真的测试过 GPT Image？" → determine provider matrix and prompt variants
 
 ### Phase 3: Draft the Body
 
 For `type: prompt`:
 
-1. Draft a compact English prompt template
-2. Insert `{{variable|default}}` slots
-3. Add variables and tips
+1. Draft a conservative neutral English prompt template
+2. Add provider-specific blocks only for supported model families:
+   - `gemini`: descriptive scene language, exact quoted labels, avoid generic quality tags
+   - `gpt-image`: explicit constraints, exact text/label limits, and negative constraints for artifacts
+3. Insert `{{variable|default}}` slots consistently across variants where practical
+4. Add variables and tips, including any provider-specific caveats
 
 For `type: workflow`:
 
@@ -241,7 +277,7 @@ For `type: workflow`:
 2. List the required inputs
 3. Write the numbered steps
 4. Add a baseline-lock step when the workflow includes refinement rounds
-5. Add prompt blocks for the steps that call Gemini
+5. Add prompt blocks for the steps that call the selected provider/model family
 6. Distinguish creative edit steps from deterministic derivative steps when relevant
 7. Add success checks
 
@@ -249,9 +285,9 @@ For `type: workflow`:
 
 1. Generate 2-3 representative outputs when practical
 2. Save chosen samples with model-explicit names such as `sample-3-pro-01.png`
-3. Record sample metadata in frontmatter
+3. Record sample metadata in frontmatter with `provider`, `model`, `prompt_variant`, `prompt`, and `aspect`/`size`
 4. Ask for `id`, `title`, `title_en`, and bilingual `tags`
-5. Assemble `template.md` and `README.md`
+5. Assemble `template.md` and `README.md`; README must say which providers/models are verified vs only supported
 6. Validate the result against the type-aware template rules
 
 ## Template Validation Rules

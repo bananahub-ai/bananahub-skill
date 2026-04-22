@@ -1,0 +1,127 @@
+{
+  "version": "2.0.0",
+  "updated": "2026-04-22",
+  "default_profile": "nano",
+  "providers": {
+    "google-ai-studio": {
+      "family": "gemini-image",
+      "display_name": "Google AI Studio",
+      "default_model": "gemini-3-pro-image-preview",
+      "api_key_env": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+      "base_url_env": [],
+      "fallback_models": [
+        "gemini-3-pro-image-preview",
+        "gemini-3.1-flash-image-preview",
+        "gemini-2.5-flash-image",
+        "gemini-2.0-flash-preview-image-generation"
+      ]
+    },
+    "gemini-compatible": {
+      "family": "gemini-image",
+      "display_name": "Gemini-Compatible Endpoint",
+      "default_model": "gemini-3-pro-image-preview",
+      "api_key_env": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+      "base_url_env": ["GOOGLE_GEMINI_BASE_URL", "GEMINI_BASE_URL", "BANANAHUB_BASE_URL"],
+      "fallback_models": [
+        "gemini-3-pro-image-preview",
+        "gemini-3.1-flash-image-preview",
+        "gemini-2.5-flash-image",
+        "gemini-2.0-flash-preview-image-generation"
+      ]
+    },
+    "vertex-ai": {
+      "family": "gemini-image",
+      "display_name": "Vertex AI",
+      "default_model": "gemini-3-pro-image-preview",
+      "api_key_env": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+      "base_url_env": [],
+      "fallback_models": [
+        "gemini-3-pro-image-preview",
+        "gemini-3.1-flash-image-preview",
+        "gemini-2.5-flash-image"
+      ]
+    },
+    "openai": {
+      "family": "gpt-image",
+      "display_name": "OpenAI",
+      "default_model": "gpt-image-2",
+      "api_key_env": ["OPENAI_API_KEY"],
+      "base_url_env": ["OPENAI_BASE_URL"],
+      "fallback_models": ["gpt-image-2", "gpt-image-1.5", "gpt-image-1"]
+    },
+    "openai-compatible": {
+      "family": "unknown-openai-compatible",
+      "display_name": "OpenAI-Compatible Endpoint",
+      "default_model": "gpt-image-2",
+      "api_key_env": ["OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"],
+      "base_url_env": ["OPENAI_BASE_URL", "BANANAHUB_BASE_URL", "GOOGLE_GEMINI_BASE_URL"],
+      "fallback_models": []
+    },
+    "chatgpt-compatible": {
+      "family": "chat-image",
+      "display_name": "ChatGPT-Compatible Chat Image Endpoint",
+      "default_model": "gpt-5.4",
+      "api_key_env": ["BANANAHUB_CHATGPT_API_KEY", "CHATGPT_COMPATIBLE_API_KEY"],
+      "base_url_env": ["BANANAHUB_CHATGPT_BASE_URL", "CHATGPT_COMPATIBLE_BASE_URL"],
+      "fallback_models": ["gpt-5.4"]
+    }
+  },
+  "models": {
+    "gemini-3-pro-image-preview": {
+      "provider": "google-ai-studio",
+      "family": "gemini-image",
+      "display_name": "Gemini 3 Pro Image Preview",
+      "aliases": ["nano-banana-pro", "nano-banana-pro-preview"],
+      "capability_profile": "gemini-pro-image"
+    },
+    "gemini-3.1-flash-image-preview": {
+      "provider": "google-ai-studio",
+      "family": "gemini-image",
+      "display_name": "Gemini 3.1 Flash Image Preview",
+      "aliases": ["nano-banana-2", "nano-banana-flash"],
+      "capability_profile": "gemini-flash-image"
+    },
+    "gemini-2.5-flash-image": {
+      "provider": "google-ai-studio",
+      "family": "gemini-image",
+      "display_name": "Gemini 2.5 Flash Image",
+      "aliases": ["nano-banana", "nano-banana-1"],
+      "capability_profile": "gemini-flash-image"
+    },
+    "gemini-2.0-flash-preview-image-generation": {
+      "provider": "google-ai-studio",
+      "family": "gemini-image",
+      "display_name": "Gemini 2.0 Flash Image Generation",
+      "aliases": ["gemini-flash-image-legacy"],
+      "capability_profile": "gemini-legacy-image"
+    },
+    "gpt-image-2": {
+      "provider": "openai",
+      "family": "gpt-image",
+      "display_name": "GPT Image 2",
+      "aliases": ["gpt-image2", "gpt image 2"],
+      "capability_profile": "gpt-image-2"
+    },
+    "gpt-image-1.5": {
+      "provider": "openai",
+      "family": "gpt-image",
+      "display_name": "GPT Image 1.5",
+      "aliases": ["gpt-image15", "gpt image 1.5"],
+      "capability_profile": "gpt-image-1-5"
+    },
+    "gpt-image-1": {
+      "provider": "openai",
+      "family": "gpt-image",
+      "display_name": "GPT Image 1",
+      "aliases": ["gpt-image", "gpt image"],
+      "capability_profile": "gpt-image-1"
+    },
+    "gpt-5.4": {
+      "provider": "chatgpt-compatible",
+      "family": "chat-image",
+      "display_name": "GPT 5.4 Chat Image",
+      "aliases": ["gpt5.4", "gpt 5.4"],
+      "capability_profile": "chat-image"
+    }
+  }
+}

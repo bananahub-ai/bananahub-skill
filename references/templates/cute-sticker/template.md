@@ -18,11 +18,42 @@ models:
   - name: gemini-2.5-flash-image
     tested: false
     quality: unknown
+providers:
+  - id: google-ai-studio
+    family: gemini-image
+    models:
+      - id: gemini-3-pro-image-preview
+        aliases: [nano-banana-pro]
+        quality: best
+        prompt_variant: gemini
+      - id: gemini-3.1-flash-image-preview
+        aliases: [nano-banana-2]
+        quality: good
+        prompt_variant: gemini
+  - id: openai
+    family: gpt-image
+    models:
+      - id: gpt-image-2
+        quality: untested
+        prompt_variant: gpt-image
+      - id: gpt-image-1
+        quality: untested
+        prompt_variant: gpt-image
+capabilities:
+  generation: true
+  edit: false
+  mask_edit: false
+prompt_variants:
+  default: base
+  gemini: prompt-gemini
+  gpt-image: prompt-gpt-image
 aspect: "1:1"
 difficulty: beginner
 samples:
   - file: samples/sample-3.1-flash-01.png
+    provider: google-ai-studio
     model: gemini-3.1-flash-image-preview
+    prompt_variant: gemini
     prompt: "A cute chibi sticker of a round fluffy cat, happy and excited with oversized sparkly eyes and a wide open smile, waving both paws enthusiastically. Kawaii anime style with bold black outline, flat cel-shaded colors, and clean white background. Super deformed proportions with an oversized head (head-to-body ratio 1:1), die-cut sticker-ready composition, simple rounded shapes, vibrant pastel-accented colors."
     aspect: "1:1"
 created: 2026-03-24
@@ -37,6 +68,18 @@ updated: 2026-03-24
 
 ```
 A cute chibi sticker of {{subject|a round fluffy cat}}, {{expression|happy and excited with oversized sparkly eyes and a wide open smile}}, {{action|waving both paws enthusiastically}}. {{style|Kawaii anime style with bold black outline, flat cel-shaded colors, and clean white background}}. Super deformed proportions with an oversized head (head-to-body ratio 1:1), die-cut sticker-ready composition, simple rounded shapes, vibrant pastel-accented colors.
+```
+
+## Prompt Template: gemini
+
+```
+A cute chibi sticker of {{subject|a round fluffy cat}}, {{expression|happy and excited with oversized sparkly eyes and a wide open smile}}, {{action|waving both paws enthusiastically}}. {{style|Kawaii anime style with bold black outline, flat cel-shaded colors, and clean white background}}. Super deformed proportions with an oversized head (head-to-body ratio 1:1), die-cut sticker-ready composition, simple rounded shapes, vibrant pastel-accented colors.
+```
+
+## Prompt Template: gpt-image
+
+```
+Create a cute sticker of {{subject|a chubby orange cat holding a tiny fish}}. Use {{style|rounded kawaii vector style with thick clean outlines and soft pastel colors}}. Keep {{background|a transparent or plain white background}} and {{expression|a happy playful expression}}. Center the character with a clear silhouette. Avoid extra text, complex scenery, tiny props, cropped edges, duplicated limbs, or busy shadows.
 ```
 
 ## Variables

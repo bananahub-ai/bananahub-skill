@@ -1,8 +1,8 @@
 ---
 name: bananahub
 description: >
-  Agent-native Gemini image workflow for `/bananahub`. Normalizes non-English prompts into English by default,
-  generates or edits images, lists or falls back across Gemini image models, and discovers or uses
+  Agent-native multi-provider image workflow for `/bananahub`. Normalizes non-English prompts into English by default,
+  generates or edits images across Gemini/Nano Banana, OpenAI GPT Image, and chat-compatible image routes, and discovers or uses
   BananaHub prompt and workflow templates. Trigger only when the user explicitly mentions
   bananahub / BananaHub or uses the `/bananahub` command. Do NOT activate on generic image-generation
   requests like "生成图片" or "画一个".
@@ -27,7 +27,7 @@ user_invocable: true
 
 # BananaHub
 
-Generate or edit Gemini images from non-English or mixed-language requests inside one `/bananahub` workflow. BananaHub keeps prompt optimization, conservative enhancement, model fallback, image editing, template use, and BananaHub discovery in a single skill instead of splitting them across separate installs.
+Generate or edit provider-backed images from non-English or mixed-language requests inside one `/bananahub` workflow. Gemini/Nano Banana remains the default model family, and OpenAI GPT Image support is provider-routed. BananaHub keeps prompt optimization, conservative enhancement, model fallback, image editing, template use, and BananaHub discovery in a single skill instead of splitting them across separate installs.
 
 ## Quick Start
 
@@ -41,9 +41,15 @@ Generate or edit Gemini images from non-English or mixed-language requests insid
 ## Key Paths
 
 - **Generation script**: `{baseDir}/scripts/bananahub.py`
+- **Provider adapters**: `{baseDir}/scripts/providers/` — Gemini, OpenAI Images, and chat/completions-compatible runtime adapters
+- **Runtime config module**: `{baseDir}/scripts/runtime_config.py` — provider constants, aliases, transport defaults, config keys, and endpoint normalization
+- **Config store module**: `{baseDir}/scripts/config_store.py` — config loading, profile merge, validation, provider override, and serialization helpers
 - **Prompt optimization rules**: `references/prompt-guide.md` — read during Phase 1 (base optimization)
 - **Enhancement profiles**: `references/profiles/{name}.md` — read during Phase 3 (on-demand)
 - **Official references**: `references/official-sources.md` — authoritative source URLs, core example library
+- **Capability registry**: `references/capability-registry.md` — provider/model feature routing and fallback policy
+- **Model registry**: `references/model-registry.json` — canonical model ids, aliases, defaults, and provider families
+- **Provider guides**: `references/providers/{provider}.md` — lazy-loaded model-family prompt and runtime rules
 - **Template system**: `references/template-system.md` — read when handling templates/use/create-template commands
 - **Hub discovery guide**: `references/hub-discovery.md` — read when handling `discover` or when local template matching is weak
 - **Template files**: `{baseDir}/references/templates/<id>/template.md` (built-in) + `~/.config/bananahub/templates/<id>/template.md` (user-installed)
@@ -52,13 +58,17 @@ Generate or edit Gemini images from non-English or mixed-language requests insid
 - **Init guide**: `references/init-guide.md` — read when handling `init` command
 - **Optimization pipeline**: `references/optimization-pipeline.md` — read when optimizing prompts
 - **Template format spec**: `references/template-format-spec.md` — detailed field definitions, repo structure, sample requirements
+- **Template validator**: `python3 {baseDir}/scripts/validate_templates.py` — validates bundled/user template metadata for schema v1/v2 compatibility
 - **API config** (priority high→low):
   1. `--config <file>` CLI flag
   2. Environment variables (`GOOGLE_API_KEY`, `GEMINI_API_KEY`, `BANANAHUB_PROVIDER`, `BANANAHUB_AUTH_MODE`, `BANANAHUB_MODEL`, `GOOGLE_GEMINI_BASE_URL`, `GEMINI_BASE_URL`, `BANANAHUB_BASE_URL`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`)
   3. Skill config: `~/.config/bananahub/config.json`
      - `{"provider": "google-ai-studio", "api_key": "...", "model": "gemini-3-pro-image-preview"}`
      - `{"provider": "gemini-compatible", "api_key": "...", "base_url": "https://..."}`
-     - `{"provider": "openai-compatible", "api_key": "...", "base_url": "https://...", "model": "gemini-2.0-flash-preview-image-generation"}`
+     - `{"provider": "openai", "openai_api_key": "...", "model": "gpt-image-2"}`
+     - `{"provider": "openai-compatible", "api_key": "...", "base_url": "https://...", "model": "gpt-image-2"}`
+     - `{"provider": "chatgpt-compatible", "chatgpt_api_key": "...", "chatgpt_base_url": "https://...", "model": "gpt-5.4"}`
+     - multi-profile: `{"default_profile":"nano","profiles":{"nano":{"provider":"google-ai-studio","api_key":"..."},"gpt":{"provider":"openai","openai_api_key":"...","model":"gpt-image-2"}}}`
      - `{"provider": "vertex-ai", "auth_mode": "adc", "project": "...", "location": "global"}`
   4. Persistent config helpers:
      - `python3 {baseDir}/scripts/bananahub.py config show`
@@ -82,8 +92,10 @@ Before executing any command other than `help`, check if the environment is read
    - `google-ai-studio`: generate / edit / models / init
    - `gemini-compatible`: generate / edit / models / init
    - `vertex-ai`: generate / edit / models / init
-   - `openai-compatible`: generate / models / init
-7. `openai-compatible` does **not** support `edit` in the current runtime; if the user asks to edit, route them to `google-ai-studio`, `gemini-compatible`, or `vertex-ai`
+   - `openai`: OpenAI-native GPT Image generate / edit / models / init
+   - `openai-compatible`: OpenAI-style endpoint generate / models / init, capability-dependent
+   - `chatgpt-compatible`: chat/completions endpoint that returns images inside assistant replies
+7. `openai-compatible` is not the same as OpenAI-native GPT Image. Do not assume edit, mask edit, or GPT Image parameters unless the endpoint declares support.
 8. Endpoint normalization rules:
    - `gemini-compatible`: if the user pastes a URL ending in `/v1beta`, keep it conceptually but normalize the trailing version during runtime so it is not duplicated
    - `openai-compatible`: if the user pastes a bare host, the runtime may append `/v1`; for Google's official endpoint, resolve it to `/v1beta/openai`
@@ -119,11 +131,17 @@ Optional flags (append to any generation command):
 - `--model <model_id>` — specify model
 - `--aspect <ratio>` — aspect ratio (e.g., 16:9, 1:1, 9:16)
 - `--image-size <preset>` — native image-size preset (`1K`, `2K`, `4K`)
+- `--openai-size <value>` — OpenAI-native size for OpenAI-style image generation
+- `--quality <value>` — provider-native quality preset when supported
+- `--background <value>` — provider-native background option when supported
+- `--output-format <value>` — provider-native output format when supported
+- `--output-compression <N>` — provider-native output compression when supported
 - `--resize <WxH>` — post-process resize after generation/edit (e.g., `1024x1024`)
 - `--size <value>` — legacy compatibility flag; `1K/2K/4K` means native image size, `WxH` means post-process resize
 - `--output <path>` — specify output path
 - `--input <path>` — source image for edit commands
-- `--ref <path> [path...]` — reference images for edit commands (up to 13)
+- `--ref <path> [path...]` — reference images for edit commands (Gemini up to 13 refs; OpenAI provider enforces its own lower runtime limit)
+- `--mask <path>` — OpenAI-native mask image for masked edits
 - `--direct` — direct mode: skip all confirmations, generate immediately
 - `--raw` — raw mode: translate only, no optimization
 - `--retries <N>` — retry count per model on 503 before fallback (default: 1, i.e. try each model twice)
@@ -156,11 +174,13 @@ Read `references/optimization-pipeline.md` for the full pipeline. Overview:
 
 1. **Phase 0**: Extract hard constraints (exact_text, must_keep, must_avoid, style_lock, approved_baseline, allowed_delta when relevant)
 2. **Phase 1**: Base optimization — format correction, smart translation, structuring, conservative guardrail
-3. **Phase 2**: Intent recognition — match to one of 10 profiles via keyword table
+3. **Phase 1.5**: Capability/provider routing — inspect `references/capability-registry.md`, resolve model aliases from `references/model-registry.json`, then lazy-load `references/providers/*.md` only for the selected model family
+4. **Phase 2**: Intent recognition — match to one of 10 profiles via keyword table
 4. **Phase 2.1**: Local template auto-matching — suggest installed templates (progressive disclosure)
 5. **Phase 2.2**: BananaHub discovery — search remote catalog only when explicitly useful
 6. **Phase 2.5**: Style overlay detection (hand-drawn sketch-note)
 7. **Phase 3**: Enhancement — read matching profile from `references/profiles/`, classify subject, fill missing dimensions
+8. **Phase 3.5**: Model recommendation — prefer `gpt-image-2` for generation-led high-fidelity outputs; prefer Gemini/Nano Banana for edit/reference/consistency-heavy flows unless the user or template overrides it
 
 ## Image Generation Flow
 
@@ -171,9 +191,7 @@ Read `references/optimization-pipeline.md` for the full pipeline. Overview:
    When this generation comes from an active template, also pass:
    `--template-id <id> --template-repo <repo> --template-distribution bundled|remote --template-source curated|discovered`
 2. Execute script and parse JSON output
-3. **Automatic model fallback**: on server error (500/502/503/504), tries next model:
-   `gemini-3-pro-image-preview` → `gemini-3.1-flash-image-preview` → `gemini-2.5-flash-image` → `gemini-2.0-flash-preview-image-generation`
-   Use `--no-fallback` to disable.
+3. **Automatic model fallback**: on server error (500/502/503/504), tries the selected provider family fallback chain from `references/model-registry.json`. Do not cross provider families unless the user explicitly enables cross-provider fallback. Use `--no-fallback` to disable.
 4. On success:
    ```
    ✅ 图片已生成
@@ -230,6 +248,7 @@ Read `references/template-system.md` for the full template system. Overview:
 - **Format**: `template.md` with YAML frontmatter and `type: prompt | workflow`
 - **Prompt templates**: produce a reusable prompt with variables, then generate or edit
 - **Workflow templates**: act as progressive-disclosure context; load the workflow, ask only for missing blockers, and execute step-by-step with `generate` / `edit` primitives when needed
+- **Model transparency**: when a template or heuristic selects `gpt-image-2` or Gemini/Nano Banana automatically, state that recommendation explicitly instead of hiding the model choice
 - **Built-in workflow example**: `consistent-character-storyboard` for character-consistency storyboard exploration
 - **Commands**: `templates` (list installed), `templates <name>` (details), `use <id> [desc]` (activate), `discover <need>` (search hub), `create-template` (create)
 - **Auto-matching**: Phase 2.1 suggests installed templates first; Phase 2.2 can search BananaHub when local coverage is weak

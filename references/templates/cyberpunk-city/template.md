@@ -18,11 +18,42 @@ models:
   - name: gemini-2.5-flash-image
     tested: false
     quality: unknown
+providers:
+  - id: google-ai-studio
+    family: gemini-image
+    models:
+      - id: gemini-3-pro-image-preview
+        aliases: [nano-banana-pro]
+        quality: best
+        prompt_variant: gemini
+      - id: gemini-3.1-flash-image-preview
+        aliases: [nano-banana-2]
+        quality: good
+        prompt_variant: gemini
+  - id: openai
+    family: gpt-image
+    models:
+      - id: gpt-image-2
+        quality: untested
+        prompt_variant: gpt-image
+      - id: gpt-image-1
+        quality: untested
+        prompt_variant: gpt-image
+capabilities:
+  generation: true
+  edit: false
+  mask_edit: false
+prompt_variants:
+  default: base
+  gemini: prompt-gemini
+  gpt-image: prompt-gpt-image
 aspect: "16:9"
 difficulty: beginner
 samples:
   - file: samples/sample-3.1-flash-01.png
+    provider: google-ai-studio
     model: gemini-3.1-flash-image-preview
+    prompt_variant: gemini
     prompt: "A photorealistic wide-angle shot of a cyberpunk city street at night. A rain-soaked narrow alley lined with storefronts, holographic advertisements floating above the shops and flickering neon signage in the distance. The scene is bathed in pink and cyan neon light reflecting off the wet pavement and puddles. Dense fog drifts through the alley with volumetric light rays piercing through from above, creating visible shafts of colored light. Captured with a 35mm wide-angle lens, deep focus keeping both the foreground puddles and distant buildings sharp. Cinematic composition with leading lines drawing the eye into the depth of the street."
     aspect: "16:9"
 created: 2026-03-24
@@ -37,6 +68,18 @@ updated: 2026-03-24
 
 ```
 A photorealistic wide-angle shot of a cyberpunk city street at night. {{scene_detail|A rain-soaked narrow alley lined with storefronts, holographic advertisements floating above the shops and flickering neon signage in the distance}}. The scene is bathed in {{color_scheme|pink and cyan}} neon light reflecting off the wet pavement and puddles. {{atmosphere|Dense fog drifts through the alley with volumetric light rays piercing through from above, creating visible shafts of colored light}}. {{camera|Captured with a 35mm wide-angle lens, deep focus keeping both the foreground puddles and distant buildings sharp}}. Cinematic composition with leading lines drawing the eye into the depth of the street.
+```
+
+## Prompt Template: gemini
+
+```
+A photorealistic wide-angle shot of a cyberpunk city street at night. {{scene_detail|A rain-soaked narrow alley lined with storefronts, holographic advertisements floating above the shops and flickering neon signage in the distance}}. The scene is bathed in {{color_scheme|pink and cyan}} neon light reflecting off the wet pavement and puddles. {{atmosphere|Dense fog drifts through the alley with volumetric light rays piercing through from above, creating visible shafts of colored light}}. {{camera|Captured with a 35mm wide-angle lens, deep focus keeping both the foreground puddles and distant buildings sharp}}. Cinematic composition with leading lines drawing the eye into the depth of the street.
+```
+
+## Prompt Template: gpt-image
+
+```
+Create a cinematic cyberpunk city scene showing {{scene|a rainy neon alley at night}}. Use {{lighting|strong neon signs reflected on wet pavement}} and {{mood|moody futuristic atmosphere}} with {{details|dense urban depth, umbrellas, steam, and layered architecture}}. Keep the composition readable with one clear focal path. Avoid illegible sign text, random logos, cluttered foreground objects, distorted people, or overexposed neon bloom.
 ```
 
 ## Variables

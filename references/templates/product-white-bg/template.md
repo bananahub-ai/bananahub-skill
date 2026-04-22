@@ -15,11 +15,42 @@ models:
   - name: gemini-3-pro-image-preview
     tested: false
     quality: expected-best
+providers:
+  - id: google-ai-studio
+    family: gemini-image
+    models:
+      - id: gemini-3-pro-image-preview
+        aliases: [nano-banana-pro]
+        quality: best
+        prompt_variant: gemini
+      - id: gemini-3.1-flash-image-preview
+        aliases: [nano-banana-2]
+        quality: good
+        prompt_variant: gemini
+  - id: openai
+    family: gpt-image
+    models:
+      - id: gpt-image-2
+        quality: untested
+        prompt_variant: gpt-image
+      - id: gpt-image-1
+        quality: untested
+        prompt_variant: gpt-image
+capabilities:
+  generation: true
+  edit: true
+  mask_edit: true
+prompt_variants:
+  default: base
+  gemini: prompt-gemini
+  gpt-image: prompt-gpt-image
 aspect: "1:1"
 difficulty: beginner
 samples:
   - file: samples/sample-3.1-flash-01.png
+    provider: google-ai-studio
     model: gemini-3.1-flash-image-preview
+    prompt_variant: gemini
     prompt: "A photorealistic professional product photograph of a sleek wireless Bluetooth headphone in matte black finish. Front three-quarter hero angle showing the top and front of the product. Pure white background with a subtle soft shadow directly beneath the product for depth. Studio three-point softbox lighting setup with a soft diffused key light and gentle rim light to define edges. Sharp focus on the product texture and material finish, the product fills most of the frame. Commercial catalog photography style, isolated composition."
     aspect: "1:1"
 created: 2026-03-24
@@ -34,6 +65,18 @@ updated: 2026-03-24
 
 ```
 A photorealistic professional product photograph of {{product|a sleek wireless Bluetooth headphone in matte black finish}}. {{angle|Front three-quarter hero angle showing the top and front of the product}}. {{background|Pure white background with a subtle soft shadow directly beneath the product for depth}}. {{lighting|Studio three-point softbox lighting setup with a soft diffused key light and gentle rim light to define edges}}. {{detail|Sharp focus on the product texture and material finish, the product fills most of the frame}}. Commercial catalog photography style, isolated composition.
+```
+
+## Prompt Template: gemini
+
+```
+A photorealistic professional catalog product photograph of {{product|a sleek wireless Bluetooth headphone in matte black finish}}. {{angle|Front three-quarter hero angle showing the top and front of the product}}. {{background|Pure white background with a subtle soft shadow directly beneath the product for depth}}. {{lighting|Studio three-point softbox lighting setup with a soft diffused key light and gentle rim light to define edges}}. {{detail|Sharp focus on the product texture and material finish, the product fills most of the frame}}. Preserve accurate material texture, clean edges, and natural shadows. Commercial catalog photography style, isolated composition.
+```
+
+## Prompt Template: gpt-image
+
+```
+Create a studio catalog product image of {{product|a sleek wireless Bluetooth headphone in matte black finish}} on a clean pure white background. Use {{angle|a front three-quarter hero angle showing the top and front of the product}} with {{lighting|soft three-point studio lighting, a diffused key light, subtle fill, and a gentle rim light}}. Keep the object isolated, centered, sharply focused, and large in frame with {{background|a small realistic contact shadow directly beneath it}}. Avoid lifestyle props, busy reflections, text artifacts, duplicated parts, or cropped edges.
 ```
 
 ## Variables
@@ -74,3 +117,4 @@ A photorealistic professional product photograph of {{product|a sleek wireless B
 - For products with text/logos, mention them explicitly so the model renders them
 - Add "with water droplets" for beverages or "with steam" for hot products to add appeal
 - Avoid "8K" or "ultra-detailed" quality tags — Gemini responds better to descriptive scene language
+- GPT Image prompts should explicitly say what to avoid, especially props, duplicated parts, and cropped edges

@@ -16,16 +16,39 @@ models:
   - name: gemini-3.1-flash-image-preview
     tested: false
     quality: good
+providers:
+  - id: google-ai-studio
+    family: gemini-image
+    models:
+      - id: gemini-3-pro-image-preview
+        aliases: [nano-banana-pro]
+        quality: best
+        prompt_variant: gemini
+      - id: gemini-3.1-flash-image-preview
+        aliases: [nano-banana-2]
+        quality: good
+        prompt_variant: gemini
+capabilities:
+  generation: true
+  edit: true
+  mask_edit: true
+prompt_variants:
+  default: base
+  gemini: prompt-gemini
 aspect: "1:1"
 difficulty: advanced
 category: assets
 samples:
   - file: samples/sample-3-pro-01.png
+    provider: google-ai-studio
+    prompt_variant: gemini
     model: gemini-3-pro-image-preview
     prompt: "Keep the exact building layout, pool placement, fountain placement, trees, and overall camera angle unchanged. Transform this image into a clean architectural concept illustration with a restrained pastel palette, soft afternoon lighting, matte materials, and crisp presentation lines. Preserve the house geometry and outdoor elements while normalizing the whole scene into one polished visual family. Do not add new objects or change the composition."
     aspect: "16:9"
   - file: samples/sample-3-pro-02.png
+    provider: google-ai-studio
     model: gemini-3-pro-image-preview
+    prompt_variant: gemini
     prompt: "Keep the exact building layout, pool placement, fountain placement, trees, and overall camera angle unchanged. Restyle this image into a premium dusk visualization with deep navy shadows, warm interior glow, reflective water, cleaner material separation, and polished architectural presentation. Preserve the house geometry and all outdoor elements while shifting the whole image into one coherent evening-render family. Do not add new objects or change the composition."
     aspect: "16:9"
 created: 2026-03-31
@@ -85,6 +108,14 @@ Using the approved style anchor and the current input image, keep {{must_keep|th
 ```text
 Keep the asset in the same family as the approved anchor. Repair only style drift: bring the palette, contrast, lighting logic, and rendering finish back into alignment while preserving the locked content and composition.
 ```
+
+## Provider Prompt Rules
+
+### Provider Variant: gemini
+
+Use the prompt blocks above as written for Gemini/Nano Banana. Keep descriptive scene language, exact labels, and locked invariants explicit. Avoid generic SD/MJ quality tags.
+
+GPT Image is not listed for this workflow yet. Do not route this workflow to GPT Image unless a tested `gpt-image` variant is added.
 
 ## Success Checks
 

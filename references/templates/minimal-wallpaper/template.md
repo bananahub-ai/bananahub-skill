@@ -18,11 +18,42 @@ models:
   - name: gemini-2.5-flash-image
     tested: false
     quality: unknown
+providers:
+  - id: google-ai-studio
+    family: gemini-image
+    models:
+      - id: gemini-3-pro-image-preview
+        aliases: [nano-banana-pro]
+        quality: best
+        prompt_variant: gemini
+      - id: gemini-3.1-flash-image-preview
+        aliases: [nano-banana-2]
+        quality: good
+        prompt_variant: gemini
+  - id: openai
+    family: gpt-image
+    models:
+      - id: gpt-image-2
+        quality: untested
+        prompt_variant: gpt-image
+      - id: gpt-image-1
+        quality: untested
+        prompt_variant: gpt-image
+capabilities:
+  generation: true
+  edit: false
+  mask_edit: false
+prompt_variants:
+  default: base
+  gemini: prompt-gemini
+  gpt-image: prompt-gpt-image
 aspect: "9:16"
 difficulty: beginner
 samples:
   - file: samples/sample-3.1-flash-01.png
+    provider: google-ai-studio
     model: gemini-3.1-flash-image-preview
+    prompt_variant: gemini
     prompt: "A minimalist phone wallpaper featuring a single small paper boat centered in the lower third of the frame with vast empty space above. Soft cream background with a muted blue accent on the subject. Clean vector illustration with subtle grain texture and crisp edges. Expansive negative space occupying most of the image, serene and contemplative mood."
     aspect: "9:16"
 created: 2026-03-24
@@ -37,6 +68,18 @@ updated: 2026-03-24
 
 ```
 A minimalist phone wallpaper featuring {{subject|a single small paper boat}} {{placement|centered in the lower third of the frame with vast empty space above}}. {{palette|Soft cream background with a muted blue accent on the subject}}. {{style|Clean vector illustration with subtle grain texture and crisp edges}}. Expansive negative space occupying most of the image, serene and contemplative mood.
+```
+
+## Prompt Template: gemini
+
+```
+A minimalist phone wallpaper featuring {{subject|a single small paper boat}} {{placement|centered in the lower third of the frame with vast empty space above}}. {{palette|Soft cream background with a muted blue accent on the subject}}. {{style|Clean vector illustration with subtle grain texture and crisp edges}}. Expansive negative space occupying most of the image, serene and contemplative mood.
+```
+
+## Prompt Template: gpt-image
+
+```
+Create a minimal phone wallpaper with {{subject|a single small paper boat}} {{placement|centered in the lower third with vast empty space above}}. Use {{palette|a soft cream background with one muted blue accent}} and {{style|clean vector shapes with subtle grain}}. Keep at least 75% negative space and leave safe empty areas for clock, notch, and dock. Avoid extra objects, text, detailed backgrounds, visual clutter, or centered busy compositions.
 ```
 
 ## Variables
