@@ -59,6 +59,7 @@ SKILL_CONFIG_PATH = runtime_cfg.SKILL_CONFIG_PATH
 TELEMETRY_STATE_PATH = runtime_cfg.TELEMETRY_STATE_PATH
 HUB_API_BASE = os.environ.get("BANANAHUB_HUB_API", "https://worker.bananahub.ai/api")
 DEFAULT_TEMPLATE_REPO = "bananahub-ai/bananahub-skill"
+DEFAULT_PROMPT_ARCHIVE_DIR = "bananahub-prompts"
 VALID_TEMPLATE_DISTRIBUTIONS = {"bundled", "remote"}
 VALID_CATALOG_SOURCES = {"curated", "discovered"}
 VALID_TELEMETRY_EVENTS = {"selected", "generate_success", "edit_success"}
@@ -137,6 +138,29 @@ def _normalize_model(value):
 def _is_truthy(value):
     """Return True for common truthy env/config values."""
     return runtime_cfg.is_truthy(value)
+
+
+def _active_api_key(config, runtime_support=None):
+    """Return the key used by the currently selected provider, plus config key metadata."""
+    support = runtime_support or _runtime_support_status(config)
+    if support["auth_mode"] != AUTH_MODE_API_KEY:
+        return None, None, "not_required"
+
+    provider = support["provider"]
+    if provider == PROVIDER_CHATGPT_COMPATIBLE:
+        return config.get("BANANAHUB_CHATGPT_API_KEY", ""), "BANANAHUB_CHATGPT_API_KEY", "chatgpt"
+    if provider == PROVIDER_OPENAI:
+        return config.get("OPENAI_API_KEY", ""), "OPENAI_API_KEY", "openai"
+    if provider == PROVIDER_OPENAI_COMPATIBLE and config.get("OPENAI_API_KEY"):
+        return config.get("OPENAI_API_KEY", ""), "OPENAI_API_KEY", "openai-compatible"
+    return config.get("GEMINI_API_KEY", ""), "GEMINI_API_KEY", "gemini"
+
+
+def _host_imagegen_available(args=None):
+    """Return whether the caller tells BananaHub that host-native image generation exists."""
+    if args and getattr(args, "host_imagegen", False):
+        return True
+    return _is_truthy(os.environ.get("BANANAHUB_HOST_IMAGEGEN", ""))
 
 def _normalize_config_value(env_key, value):
     """Normalize raw config values based on the canonical internal key."""
@@ -707,36 +731,63 @@ def cmd_init(args):
     })
 
     # 3. Check API key
-    provider = config.get("BANANAHUB_PROVIDER", DEFAULT_PROVIDER)
-    api_key = config.get("OPENAI_API_KEY", "") if provider == PROVIDER_OPENAI else config.get("GEMINI_API_KEY", "")
+    api_key, api_key_name, api_key_type = _active_api_key(config, runtime_support)
     if runtime_support["auth_mode"] != AUTH_MODE_API_KEY:
         checks.append({
             "name": "api_key",
             "ok": True,
             "value": "(not required for current auth_mode)",
-            "source": resolved_from.get("GEMINI_API_KEY"),
+            "source": resolved_from.get(api_key_name) if api_key_name else None,
         })
     elif api_key:
         checks.append({
             "name": "api_key",
             "ok": True,
             "value": _mask_secret(api_key),
-            "source": resolved_from.get("GEMINI_API_KEY"),
+            "config_key": api_key_name,
+            "type": api_key_type,
+            "source": resolved_from.get(api_key_name),
         })
     else:
         checks.append({
             "name": "api_key",
             "ok": False,
-            "error": "API key not found in any config source. Set GEMINI_API_KEY or GOOGLE_API_KEY.",
+            "config_key": api_key_name,
+            "type": api_key_type,
+            "error": "API key not found in any config source for the selected provider.",
         })
 
     # 4. Check endpoint / base URL
-    base_url = config.get("GOOGLE_GEMINI_BASE_URL", "")
+    if runtime_support["provider"] == PROVIDER_CHATGPT_COMPATIBLE:
+        base_url = config.get("BANANAHUB_CHATGPT_BASE_URL", "")
+        base_url_source = resolved_from.get("BANANAHUB_CHATGPT_BASE_URL")
+    elif runtime_support["provider"] == PROVIDER_OPENAI:
+        base_url = config.get("OPENAI_BASE_URL", "")
+        base_url_source = resolved_from.get("OPENAI_BASE_URL")
+    elif runtime_support["transport"] == TRANSPORT_OPENAI_REST:
+        base_url = config.get("OPENAI_BASE_URL") or config.get("GOOGLE_GEMINI_BASE_URL", "")
+        base_url_source = resolved_from.get("OPENAI_BASE_URL") or resolved_from.get("GOOGLE_GEMINI_BASE_URL")
+    else:
+        base_url = config.get("GOOGLE_GEMINI_BASE_URL", "")
+        base_url_source = resolved_from.get("GOOGLE_GEMINI_BASE_URL")
+
     if runtime_support["provider"] == PROVIDER_GEMINI_COMPATIBLE and not base_url:
         checks.append({
             "name": "base_url",
             "ok": False,
             "error": "provider 'gemini-compatible' requires a base_url.",
+        })
+    elif runtime_support["provider"] == PROVIDER_OPENAI_COMPATIBLE and not base_url:
+        checks.append({
+            "name": "base_url",
+            "ok": False,
+            "error": "provider 'openai-compatible' requires a base_url.",
+        })
+    elif runtime_support["provider"] == PROVIDER_CHATGPT_COMPATIBLE and not base_url:
+        checks.append({
+            "name": "base_url",
+            "ok": False,
+            "error": "provider 'chatgpt-compatible' requires a chatgpt_base_url.",
         })
     elif base_url:
         endpoint_resolution = (
@@ -748,14 +799,14 @@ def cmd_init(args):
             "name": "base_url",
             "ok": True,
             "value": base_url,
-            "source": resolved_from.get("GOOGLE_GEMINI_BASE_URL"),
+            "source": base_url_source,
             "mode": "custom_endpoint" if runtime_support["provider"] != PROVIDER_GOOGLE_AI_STUDIO else "override_endpoint",
             "resolved_base_url": endpoint_resolution.get("resolved_base_url"),
             "api_version": endpoint_resolution.get("api_version"),
             "warnings": endpoint_resolution.get("warnings"),
         })
     else:
-        checks.append({"name": "base_url", "ok": True, "value": "(default Google endpoint)", "mode": "google_default"})
+        checks.append({"name": "base_url", "ok": True, "value": "(provider default endpoint)", "mode": "provider_default"})
 
     # 5. Show configured default model when present
     model = config.get("BANANAHUB_MODEL", "")
@@ -1089,6 +1140,82 @@ def cmd_telemetry_track(args):
     print(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
+def cmd_check_mode(args):
+    """Report the executable BananaHub mode and capability layer boundaries."""
+    config, resolved_from, config_sources, explicit_resolved_from = _load_merged_config(
+        config_file=getattr(args, "config", None)
+    )
+    config = _apply_command_provider_override(config, getattr(args, "provider", None))
+    runtime_support = _runtime_support_status(config)
+    validation_errors = _config_validation_errors(config)
+    active_key, active_key_name, active_key_type = _active_api_key(config, runtime_support)
+    host_native_available = _host_imagegen_available(args)
+    provider_ready = runtime_support["supported"] and not validation_errors
+
+    if provider_ready:
+        mode = "provider-backed"
+        recommendation = "run-generate-or-edit"
+        summary = "Provider-backed mode: BananaHub can call the configured image provider and save outputs."
+    elif host_native_available:
+        mode = "host-native"
+        recommendation = "delegate-to-host-image-tool"
+        summary = "Host-native mode: BananaHub should optimize/render the prompt, then hand it to the host image tool."
+    else:
+        mode = "prompt-only"
+        recommendation = "archive-and-return-prompt"
+        summary = "Prompt-only advisor mode: BananaHub can still optimize, template, and archive prompts, but cannot call an image provider."
+
+    response = {
+        "status": "ok",
+        "mode": mode,
+        "recommendation": recommendation,
+        "summary": summary,
+        "provider_ready": provider_ready,
+        "host_native_available": host_native_available,
+        "existing_sources": _list_config_sources(config_sources, explicit_resolved_from),
+        "effective_config": _serialize_effective_config(config),
+        "resolved_from": _serialize_resolved_from(resolved_from),
+        "runtime_support": runtime_support,
+        "validation_errors": validation_errors,
+        "active_api_key": {
+            "required": runtime_support["auth_mode"] == AUTH_MODE_API_KEY,
+            "present": bool(active_key),
+            "config_key": active_key_name,
+            "type": active_key_type,
+            "source": resolved_from.get(active_key_name) if active_key_name else None,
+        },
+        "capability_layers": {
+            "skill_workflow_cross_model": [
+                "prompt_optimization",
+                "translation_policy",
+                "conservative_enhancement",
+                "prompt_archiving",
+                "template_discovery",
+                "template_activation",
+                "host_native_delegation",
+                "prompt_only_advisor",
+            ],
+            "provider_or_model_scoped": [
+                "image_edit",
+                "mask_edit",
+                "multi_reference",
+                "transparent_background",
+                "custom_size",
+                "native_quality",
+                "output_format",
+                "model_fallback",
+            ],
+        },
+        "prompt_archive": {
+            "default_dir": DEFAULT_PROMPT_ARCHIVE_DIR,
+            "enabled_by_env": _is_truthy(os.environ.get("BANANAHUB_SAVE_PROMPTS", "")),
+            "flags": ["--save-prompt", "--prompt-output <path>"],
+        },
+    }
+
+    print(json.dumps(response, ensure_ascii=False, indent=2 if getattr(args, "pretty", False) else None))
+
+
 IMAGE_KEYWORDS = {"image", "imagen"}
 DEFAULT_MODEL = "gemini-3-pro-image-preview"
 DEFAULT_MODEL_BY_PROVIDER = {
@@ -1386,6 +1513,78 @@ def _default_output_path(prefix, model):
     return output_dir / f"{prefix}_{model_short}_{timestamp}.png"
 
 
+def _slugify_prompt(value, fallback="prompt"):
+    """Create a short ASCII slug for prompt archive files."""
+    base = str(value or "").strip().lower()
+    base = re.sub(r"[^a-z0-9]+", "-", base)
+    base = base.strip("-")[:48]
+    return base or fallback
+
+
+def _default_prompt_archive_path(command, prompt):
+    """Build the default prompt archive path under the current working directory."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    slug = _slugify_prompt(" ".join(str(prompt).split()[:8]))
+    return Path.cwd() / DEFAULT_PROMPT_ARCHIVE_DIR / f"{command}_{slug}_{timestamp}.md"
+
+
+def _resolve_prompt_archive_path(prompt, command="prompt", prompt_output=None):
+    """Resolve a prompt archive path from an explicit path or the default archive directory."""
+    if prompt_output:
+        target = Path(prompt_output)
+        if target.suffix:
+            return target
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        slug = _slugify_prompt(" ".join(str(prompt).split()[:8]))
+        return target / f"{command}_{slug}_{timestamp}.md"
+    return _default_prompt_archive_path(command, prompt)
+
+
+def _prompt_archive_requested(args):
+    """Return whether this command should save the final prompt."""
+    return bool(
+        getattr(args, "prompt_output", None)
+        or getattr(args, "save_prompt", False)
+        or _is_truthy(os.environ.get("BANANAHUB_SAVE_PROMPTS", ""))
+    )
+
+
+def _write_prompt_archive(prompt, command="prompt", prompt_output=None, metadata=None):
+    """Persist a final prompt as Markdown and return the saved path."""
+    path = _resolve_prompt_archive_path(prompt, command=command, prompt_output=prompt_output)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    frontmatter = {
+        "created": datetime.now().isoformat(timespec="seconds"),
+        "command": command,
+    }
+    if metadata:
+        for key, value in metadata.items():
+            if value not in (None, "", [], {}):
+                frontmatter[key] = value
+    lines = ["---"]
+    for key, value in frontmatter.items():
+        if isinstance(value, (list, dict)):
+            rendered = json.dumps(value, ensure_ascii=False)
+        else:
+            rendered = str(value)
+        lines.append(f"{key}: {rendered}")
+    lines.extend(["---", "", str(prompt).strip(), ""])
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return path
+
+
+def _archive_prompt_for_command(args, prompt, command, metadata=None):
+    """Save a prompt for generate/edit when requested by CLI flag or environment."""
+    if not _prompt_archive_requested(args):
+        return None
+    return _write_prompt_archive(
+        prompt,
+        command=command,
+        prompt_output=getattr(args, "prompt_output", None),
+        metadata=metadata,
+    )
+
+
 def _save_png_bytes(image_bytes, output_path, resize_dims=None):
     """Persist image bytes as PNG, optionally resizing first."""
     from PIL import Image
@@ -1414,6 +1613,9 @@ def cmd_edit(args):
     if getattr(args, "dry_run", False):
         requested_model_input = _resolve_default_model(config_data, args.model)
         requested_model = _canonicalize_model(requested_model_input)
+        prompt_archive = None
+        if _prompt_archive_requested(args):
+            prompt_archive = str(_resolve_prompt_archive_path(args.prompt, command="edit", prompt_output=getattr(args, "prompt_output", None)))
         print(json.dumps({
             "status": "ok",
             "dry_run": True,
@@ -1427,6 +1629,7 @@ def cmd_edit(args):
             "input": args.input,
             "ref": args.ref or [],
             "mask": getattr(args, "mask", None),
+            "prompt_archive": prompt_archive,
             "native_image_size": native_image_size,
             "post_resize": f"{resize_dims[0]}x{resize_dims[1]}" if resize_dims else None,
             "provider_options": {
@@ -1511,6 +1714,18 @@ def cmd_edit(args):
     no_fallback = getattr(args, "no_fallback", False)
     retries = getattr(args, "retries", 1)
     user_output = args.output
+    saved_prompt_path = _archive_prompt_for_command(
+        args,
+        prompt,
+        "edit",
+        metadata={
+            "provider": runtime_support["provider"],
+            "requested_model": requested_model_input,
+            "input": str(input_path),
+            "ref": [str(rp) for rp in ref_paths],
+            "mask": str(mask_path) if mask_path else None,
+        },
+    )
 
     if no_fallback:
         models_to_try = [requested_model]
@@ -1536,6 +1751,7 @@ def cmd_edit(args):
                             "status": "error",
                             "error": gen_error,
                             "prompt": prompt,
+                            "prompt_file": str(saved_prompt_path) if saved_prompt_path else None,
                             "requested_model": requested_model_input,
                             "actual_model": model,
                         }, ensure_ascii=False))
@@ -1550,6 +1766,7 @@ def cmd_edit(args):
                         "requested_model": requested_model_input,
                         "actual_model": model,
                         "prompt": prompt,
+                        "prompt_file": str(saved_prompt_path) if saved_prompt_path else None,
                         "image_size": f"{image.width}x{image.height}",
                         "total_images": 1 + len(ref_paths),
                     }
@@ -1594,6 +1811,7 @@ def cmd_edit(args):
             "status": "error",
             "error": error_msg,
             "prompt": prompt,
+            "prompt_file": str(saved_prompt_path) if saved_prompt_path else None,
             "requested_model": requested_model_input,
             "resolved_requested_model": requested_model,
             "retries_per_model": retries,
@@ -1650,6 +1868,7 @@ def cmd_edit(args):
                         "status": "error",
                         "error": gen_error,
                         "prompt": prompt,
+                        "prompt_file": str(saved_prompt_path) if saved_prompt_path else None,
                         "requested_model": requested_model_input,
                         "actual_model": model,
                     }, ensure_ascii=False))
@@ -1681,6 +1900,7 @@ def cmd_edit(args):
                     "requested_model": requested_model_input,
                     "actual_model": model,
                     "prompt": prompt,
+                    "prompt_file": str(saved_prompt_path) if saved_prompt_path else None,
                     "image_size": f"{image.width}x{image.height}",
                     "total_images": len(input_images),
                 }
@@ -1736,6 +1956,7 @@ def cmd_edit(args):
         "status": "error",
         "error": error_msg,
         "prompt": prompt,
+        "prompt_file": str(saved_prompt_path) if saved_prompt_path else None,
         "requested_model": requested_model_input,
         "resolved_requested_model": requested_model,
         "retries_per_model": retries,
@@ -1773,6 +1994,9 @@ def cmd_generate(args):
     if getattr(args, "dry_run", False):
         requested_model_input = _resolve_default_model(config, args.model)
         requested_model = _canonicalize_model(requested_model_input)
+        prompt_archive = None
+        if _prompt_archive_requested(args):
+            prompt_archive = str(_resolve_prompt_archive_path(args.prompt, command="generate", prompt_output=getattr(args, "prompt_output", None)))
         print(json.dumps({
             "status": "ok",
             "dry_run": True,
@@ -1782,6 +2006,7 @@ def cmd_generate(args):
             "requested_model": requested_model_input,
             "resolved_model": requested_model,
             "prompt": args.prompt,
+            "prompt_archive": prompt_archive,
             "aspect_ratio": args.aspect or "1:1",
             "native_image_size": native_image_size,
             "post_resize": f"{resize_dims[0]}x{resize_dims[1]}" if resize_dims else None,
@@ -1810,6 +2035,16 @@ def cmd_generate(args):
 
     # Determine output path (default: current working directory with model name)
     user_output = args.output
+    saved_prompt_path = _archive_prompt_for_command(
+        args,
+        prompt,
+        "generate",
+        metadata={
+            "provider": runtime_support["provider"],
+            "requested_model": requested_model_input,
+            "aspect_ratio": aspect_ratio,
+        },
+    )
 
     # Build model attempt list
     if no_fallback:
@@ -1871,6 +2106,7 @@ def cmd_generate(args):
                         "requested_model": requested_model_input,
                         "actual_model": model,
                         "prompt": prompt,
+                        "prompt_file": str(saved_prompt_path) if saved_prompt_path else None,
                         "warning": "Chat response contained an image reference, but BananaHub could not download it. Saved reference metadata instead.",
                         "details": extra_warnings,
                     }, ensure_ascii=False))
@@ -1882,6 +2118,7 @@ def cmd_generate(args):
                         "status": "error",
                         "error": gen_error,
                         "prompt": prompt,
+                        "prompt_file": str(saved_prompt_path) if saved_prompt_path else None,
                         "requested_model": requested_model_input,
                         "actual_model": model,
                     }
@@ -1904,6 +2141,7 @@ def cmd_generate(args):
                     "requested_model": requested_model_input,
                     "actual_model": model,
                     "prompt": prompt,
+                    "prompt_file": str(saved_prompt_path) if saved_prompt_path else None,
                     "aspect_ratio": aspect_ratio,
                     "image_size": f"{image.width}x{image.height}",
                 }
@@ -1959,6 +2197,7 @@ def cmd_generate(args):
         "status": "error",
         "error": error_msg,
         "prompt": prompt,
+        "prompt_file": str(saved_prompt_path) if saved_prompt_path else None,
         "requested_model": requested_model_input,
         "resolved_requested_model": requested_model,
         "retries_per_model": retries,
@@ -1997,6 +2236,8 @@ def main():
     gen_parser.add_argument("--resize", help="Post-process resize to WxH, e.g. 1024x1024")
     gen_parser.add_argument("--size", "-s", help="Legacy compatibility flag: use 1K/2K/4K for native image size, or WxH for post-processing resize")
     gen_parser.add_argument("--output", "-o", help="Output file path (default: current directory)")
+    gen_parser.add_argument("--save-prompt", action="store_true", help=f"Save the final prompt under {DEFAULT_PROMPT_ARCHIVE_DIR}/")
+    gen_parser.add_argument("--prompt-output", help="Save the final prompt to a file or directory")
     gen_parser.add_argument("--no-fallback", action="store_true", help="Disable automatic model fallback on server errors")
     gen_parser.add_argument("--retries", type=int, default=1, help="Retry count per model on 503 before fallback (default: 1)")
     gen_parser.add_argument("--dry-run", action="store_true", help="Resolve config/model/options without calling the provider")
@@ -2014,6 +2255,8 @@ def main():
     edit_parser.add_argument("--resize", help="Post-process resize to WxH, e.g. 1024x1024")
     edit_parser.add_argument("--size", "-s", help="Legacy compatibility flag: use 1K/2K/4K for native image size, or WxH for post-processing resize")
     edit_parser.add_argument("--output", "-o", help="Output file path (default: current directory)")
+    edit_parser.add_argument("--save-prompt", action="store_true", help=f"Save the final prompt under {DEFAULT_PROMPT_ARCHIVE_DIR}/")
+    edit_parser.add_argument("--prompt-output", help="Save the final prompt to a file or directory")
     edit_parser.add_argument("--no-fallback", action="store_true", help="Disable automatic model fallback on server errors")
     edit_parser.add_argument("--retries", type=int, default=1, help="Retry count per model on 503 before fallback (default: 1)")
     edit_parser.add_argument("--dry-run", action="store_true", help="Resolve config/model/options without calling the provider")
@@ -2022,6 +2265,12 @@ def main():
     # models command
     models_parser = subparsers.add_parser("models", help="List available models")
     models_parser.add_argument("--provider", choices=sorted(SUPPORTED_PROVIDERS), help="Provider override for this command")
+
+    # check-mode command
+    check_mode_parser = subparsers.add_parser("check-mode", help="Report runtime mode and capability layers")
+    check_mode_parser.add_argument("--provider", choices=sorted(SUPPORTED_PROVIDERS), help="Provider override for this command")
+    check_mode_parser.add_argument("--host-imagegen", action="store_true", help="Tell BananaHub that the host has a native image generation tool")
+    check_mode_parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output")
 
     # init command
     init_parser = subparsers.add_parser("init", help="Check environment and guide setup")
@@ -2089,6 +2338,8 @@ def main():
         cmd_edit(args)
     elif args.command == "models":
         cmd_models(args)
+    elif args.command == "check-mode":
+        cmd_check_mode(args)
     elif args.command == "init":
         cmd_init(args)
     elif args.command == "config":

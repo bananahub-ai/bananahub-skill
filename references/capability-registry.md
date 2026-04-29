@@ -16,6 +16,26 @@ This registry defines provider/model capabilities used by the skill, runtime, te
 | `output_format` | Choose output encoding such as PNG/JPEG/WebP | Route option through provider adapter |
 | `grounding` | Use current external data during image planning | Gemini-specific unless another provider exposes it |
 
+## Capability Layers
+
+Not every BananaHub capability belongs at the same layer. Keep cross-model behavior in the skill layer, and keep provider/model-specific behavior behind registries and adapters.
+
+| Layer | Cross-Model? | Belongs Here | Examples |
+|---|---|---|---|
+| Skill workflow | Yes | Behavior the agent can perform before any provider call | prompt optimization, translation policy, `--direct` / `--raw`, prompt archiving, host-native delegation, prompt-only advisor fallback |
+| Template routing | Partly | Template selection and activation are common, but compatibility is provider/model-scoped | local/installed template lookup, variable filling, workflow state, provider compatibility matrix |
+| Provider family | No | Features exposed by one provider family or transport | Gemini aspect ratio and image-size presets, OpenAI `size` / `quality` / `background`, chat image URL extraction |
+| Model profile | No | Per-model aliases, default model, fallback chain, tested quality, and prompt variants | `gemini-3-pro-image-preview`, `gpt-image-2`, template `prompt_variant` and sample provenance |
+| Endpoint/runtime | No | Config, auth, base URL normalization, healthcheck, and vendor-specific transport constraints | `google-ai-studio`, `openai`, `openai-compatible`, `chatgpt-compatible` |
+
+### Cross-Model Rule
+
+Treat these as cross-model skill-layer capabilities because they can run before any image API is available: prompt optimization, translation policy, conservative enhancement, prompt archiving, mode detection, template discovery, template activation, host-native delegation, and prompt-only advisory output.
+
+Treat these as **not** cross-model unless a registry/provider adapter explicitly says otherwise: image edit, mask edit, multiple reference images, transparent background, exact size control, native quality presets, output format/compression, model fallback, and generated-image fidelity.
+
+If a capability changes request payload shape, file validation, cost, policy behavior, or output parsing, it belongs below the skill layer and must be routed through provider/model metadata instead of being assumed globally.
+
 ## Provider Capability Profiles
 
 ### `gemini-image`
