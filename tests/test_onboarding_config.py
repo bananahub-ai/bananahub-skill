@@ -41,6 +41,22 @@ class TempHome:
         self.tmp.cleanup()
 
 
+class TempBananahubEnv:
+    def __enter__(self):
+        self.old_values = {}
+        prefixes = ("BANANAHUB_", "GEMINI_", "GOOGLE_", "OPENAI_", "CHATGPT_")
+        for key in list(os.environ):
+            if key.startswith(prefixes):
+                self.old_values[key] = os.environ.pop(key)
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        for key in list(os.environ):
+            if key.startswith(("BANANAHUB_", "GEMINI_", "GOOGLE_", "OPENAI_", "CHATGPT_")):
+                os.environ.pop(key, None)
+        os.environ.update(self.old_values)
+
+
 class Args:
     pass
 
@@ -227,6 +243,40 @@ def test_skill_layer_runtime_stub_is_machine_readable():
     assert "generate" in payload["runtime_commands"]
 
 
+def test_host_imagegen_skill_layer_stub_is_machine_readable():
+    stdout = StringIO()
+    with redirect_stdout(stdout):
+        handled = bananahub._handle_skill_layer_command(["test-codex-imagegen"])
+
+    payload = json.loads(stdout.getvalue())
+
+    assert handled is True
+    assert payload["status"] == "skill_layer_command"
+    assert payload["command"] == "test-codex-imagegen"
+    assert "host/Codex image generation tool" in payload["agent_actions"][2]
+
+
+def test_check_mode_reports_host_native_channel():
+    args = Args()
+    args.config = None
+    args.provider = None
+    args.host_imagegen = True
+    args.pretty = False
+
+    with TempBananahubEnv(), TempHome():
+        stdout = StringIO()
+        with redirect_stdout(stdout):
+            bananahub.cmd_check_mode(args)
+
+    payload = json.loads(stdout.getvalue())
+
+    assert payload["mode"] == "host-native"
+    assert payload["recommendation"] == "delegate-to-host-image-tool"
+    assert payload["host_native_channel"]["available"] is True
+    assert payload["host_native_channel"]["declared_by"] == "--host-imagegen"
+    assert payload["host_native_channel"]["test_command"] == "/bananahub test-host-imagegen"
+
+
 if __name__ == "__main__":
     test_quickset_openai_compatible_writes_gpt_profile()
     test_quickset_defaults_openai_compatible_to_gpt_image_2()
@@ -237,4 +287,6 @@ if __name__ == "__main__":
     test_dependency_status_is_provider_aware()
     test_dependency_install_command_uses_current_python_user_site()
     test_skill_layer_runtime_stub_is_machine_readable()
+    test_host_imagegen_skill_layer_stub_is_machine_readable()
+    test_check_mode_reports_host_native_channel()
     print("ok")

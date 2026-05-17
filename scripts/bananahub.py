@@ -83,6 +83,14 @@ SKILL_LAYER_COMMANDS = {
         "description": "Guide creation of a prompt or workflow template.",
         "reference": "references/template-system.md",
     },
+    "test-host-imagegen": {
+        "description": "Verify whether the current agent host exposes a native image generation tool.",
+        "reference": "SKILL.md#host-native-codex-image-tool",
+    },
+    "test-codex-imagegen": {
+        "description": "Verify whether Codex exposes its built-in image generation tool.",
+        "reference": "SKILL.md#host-native-codex-image-tool",
+    },
 }
 
 
@@ -108,7 +116,13 @@ def _handle_skill_layer_command(argv):
         "agent_actions": [
             f"Read {meta['reference']}.",
             "Resolve templates/prompts locally when possible.",
-            "Only call scripts/bananahub.py generate or edit after the prompt and provider options are ready.",
+            (
+                "For test-host-imagegen/test-codex-imagegen, call the host/Codex image generation tool "
+                "with the validation prompt from SKILL.md, save or report the generated file path, then "
+                "use BANANAHUB_HOST_IMAGEGEN=1 or check-mode --host-imagegen to mark host-native mode."
+            ) if command in {"test-host-imagegen", "test-codex-imagegen"} else (
+                "Only call scripts/bananahub.py generate or edit after the prompt and provider options are ready."
+            ),
         ],
     }, ensure_ascii=False, indent=2))
     return True
@@ -1861,6 +1875,21 @@ def cmd_check_mode(args):
             "default_dir": DEFAULT_PROMPT_ARCHIVE_DIR,
             "enabled_by_env": _is_truthy(os.environ.get("BANANAHUB_SAVE_PROMPTS", "")),
             "flags": ["--save-prompt", "--prompt-output <path>"],
+        },
+        "host_native_channel": {
+            "label": "Codex or host built-in image generation tool",
+            "available": host_native_available,
+            "declared_by": (
+                "--host-imagegen" if getattr(args, "host_imagegen", False)
+                else "BANANAHUB_HOST_IMAGEGEN=1" if _is_truthy(os.environ.get("BANANAHUB_HOST_IMAGEGEN", ""))
+                else None
+            ),
+            "test_command": "/bananahub test-host-imagegen",
+            "notes": [
+                "This is a skill-layer delegation channel, not a Python runtime provider.",
+                "It usually requires no BananaHub API key because the host client owns the image tool authentication.",
+                "Advanced provider options such as exact size, mask edit, native quality, and output format may not be controllable through the host tool.",
+            ],
         },
     }
 

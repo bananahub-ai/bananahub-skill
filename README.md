@@ -29,12 +29,18 @@ claude skill install https://github.com/bananahub-ai/bananahub-skill
 /bananahub 一只橘猫趴在键盘上打盹
 ```
 
-`init` defaults to GPT Image 2 through an OpenAI-compatible image endpoint. If you choose or already configured another provider, BananaHub uses that provider as the default for future runs.
+`init` defaults to GPT Image 2 through an OpenAI-compatible image endpoint. If your Codex or agent host already exposes a built-in image generation tool, BananaHub can use it as a host-native channel without storing a local API key.
 
 Check the current execution path:
 
 ```bash
 python3 scripts/bananahub.py check-mode --pretty
+```
+
+Test the host-native image channel:
+
+```text
+/bananahub test-host-imagegen
 ```
 
 ## Workflow
@@ -48,10 +54,10 @@ The core loop is simple: describe the image, let BananaHub optimize and route th
 | Mode | When It Applies | What BananaHub Does |
 |---|---|---|
 | `provider-backed` | A supported provider and key are configured | Optimizes the prompt, calls the provider, and saves outputs |
-| `host-native` | Local provider config is incomplete, but the host agent has an image tool | Optimizes/archives the prompt, then delegates image generation to the host |
+| `host-native` | Local provider config is incomplete, but Codex or the host agent has an image tool | Optimizes/archives the prompt, then delegates image generation to the host |
 | `prompt-only` | No provider and no host image tool are available | Returns a reusable prompt; never pretends an image was generated |
 
-For CLI checks, use `BANANAHUB_HOST_IMAGEGEN=1` or `check-mode --host-imagegen` to mark host-native image generation as available.
+Codex OAuth and some API login modes expose a built-in image generation tool. For CLI checks, use `BANANAHUB_HOST_IMAGEGEN=1` or `check-mode --host-imagegen` to mark host-native image generation as available.
 
 ## Setup Flow
 
@@ -76,6 +82,7 @@ Configuration is intentionally profile-based: initialize once, persist provider 
 | `/bananahub generate <English prompt>` | Generate directly from an English prompt |
 | `/bananahub models` | List available models |
 | `/bananahub check-mode` | Inspect runtime mode and capability layers |
+| `/bananahub test-host-imagegen` | Verify Codex/host built-in image generation |
 | `/bananahub templates` | List built-in and installed templates |
 | `/bananahub use <template-id>` | Use a prompt template or start a workflow template |
 | `/bananahub discover <need>` | Search BananaHub for matching templates |

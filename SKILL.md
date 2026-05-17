@@ -2,8 +2,8 @@
 name: bananahub
 description: >
   Agent-native multi-provider image workflow for `/bananahub`. Normalizes non-English prompts into English by default,
-  generates or edits images across Gemini/Nano Banana, OpenAI GPT Image, and chat-compatible image routes, and discovers or uses
-  BananaHub prompt and workflow templates. Trigger only when the user explicitly mentions
+  generates or edits images across Gemini/Nano Banana, OpenAI GPT Image, chat-compatible image routes, and Codex/host-native
+  image tools when available, and discovers or uses BananaHub prompt and workflow templates. Trigger only when the user explicitly mentions
   bananahub / BananaHub or uses the `/bananahub` command. Do NOT activate on generic image-generation
   requests like "生成图片" or "画一个".
   Typical triggers: "/bananahub", "用 bananahub 画", "bananahub 生图", "bananahub 优化提示词",
@@ -27,13 +27,14 @@ user_invocable: true
 
 # BananaHub
 
-Generate or edit provider-backed images from non-English or mixed-language requests inside one `/bananahub` workflow. GPT Image 2 through an OpenAI-compatible image endpoint is the default path; user-configured Gemini/Nano Banana, OpenAI official, Vertex, and chat-compatible paths are preserved. BananaHub keeps prompt optimization, conservative enhancement, model fallback, image editing, template use, and BananaHub discovery in a single skill instead of splitting them across separate installs.
+Generate or edit images from non-English or mixed-language requests inside one `/bananahub` workflow. GPT Image 2 through an OpenAI-compatible image endpoint is the default provider path; user-configured Gemini/Nano Banana, OpenAI official, Vertex, chat-compatible paths, and Codex/host-native image tools are preserved. BananaHub keeps prompt optimization, conservative enhancement, model fallback, image editing, template use, and BananaHub discovery in a single skill instead of splitting them across separate installs.
 
 ## Quick Start
 
 - Install via Open Agent Skills: `npx skills add https://github.com/bananahub-ai/bananahub-skill --skill bananahub`
 - Install in Claude Code directly: `claude skill install https://github.com/bananahub-ai/bananahub-skill`
 - Run setup once: `/bananahub init`
+- Test a host-native image tool such as Codex built-in image generation: `/bananahub test-host-imagegen`
 - Generate from a natural-language request: `/bananahub 一只橘猫趴在键盘上打盹`
 - Edit an image: `/bananahub edit 把背景换成海滩 --input photo.png`
 - Discover a reusable template: `/bananahub discover 代码库讲解图`
@@ -60,6 +61,7 @@ Generate or edit provider-backed images from non-English or mixed-language reque
 - **Template format spec**: `references/template-format-spec.md` — detailed field definitions, repo structure, sample requirements
 - **Template validator**: `python3 {baseDir}/scripts/validate_templates.py` — validates bundled/user template metadata for schema v1/v2 compatibility
 - **Mode detector**: `python3 {baseDir}/scripts/bananahub.py check-mode` — reports provider-backed / host-native / prompt-only execution mode and capability layer boundaries
+- **Host-native image tool test**: `/bananahub test-host-imagegen` or `/bananahub test-codex-imagegen` — skill-layer command; call the host/Codex built-in image generation tool with the validation prompt below
 - **Prompt archive**: current working directory `bananahub-prompts/` when `--save-prompt`, `--prompt-output`, or `BANANAHUB_SAVE_PROMPTS=1` is used
 - **API config** (priority high→low):
   1. `--config <file>` CLI flag
@@ -98,15 +100,16 @@ Before executing any command other than `help`, check if the environment is read
 6. Persist new config into `~/.config/bananahub/config.json`, preferably as a named profile (`gpt`, `nano`, `vertex`, or `chat`).
 7. Treat `init --wizard` as a human-terminal fallback only; do not assume agents can run interactive prompts.
 8. Treat `openai-compatible` + `gpt-image-2` as the default setup path. If the user already configured a provider/profile/model, preserve it and route within that provider.
-9. Supported runtime providers:
+9. Before asking for a provider API key, check whether the current client exposes a host-native image generation tool. In Codex, OAuth sessions and some API logins expose a built-in image tool; if available, offer it as a no-local-AK image channel and optionally run `/bananahub test-host-imagegen`.
+10. Supported runtime providers:
    - `google-ai-studio`: generate / edit / models / init
    - `gemini-compatible`: generate / edit / models / init
    - `vertex-ai`: generate / edit / models / init
    - `openai`: OpenAI-native GPT Image generate / edit / models / init
    - `openai-compatible`: OpenAI-style Images API generate / edit / models / init, capability-dependent
    - `chatgpt-compatible`: chat/completions endpoint that returns images inside assistant replies
-10. `openai-compatible` is not the same as OpenAI-native GPT Image. The runtime attempts standard Images API generation/editing, but exact support still depends on the gateway.
-11. Endpoint normalization rules:
+11. `openai-compatible` is not the same as OpenAI-native GPT Image. The runtime attempts standard Images API generation/editing, but exact support still depends on the gateway.
+12. Endpoint normalization rules:
    - `gemini-compatible`: if the user pastes a URL ending in `/v1beta`, keep it conceptually but normalize the trailing version during runtime so it is not duplicated
    - `openai-compatible`: if the user pastes a bare host, the runtime may append `/v1`; for Google's official endpoint, resolve it to `/v1beta/openai`
 
@@ -117,7 +120,7 @@ Run `python3 {baseDir}/scripts/bananahub.py check-mode --pretty` when the execut
 | Mode | Trigger | Behavior |
 |---|---|---|
 | `provider-backed` | Config validates for a supported provider | Optimize/render prompt, call `generate` or `edit`, and save image outputs |
-| `host-native` | Provider config is missing or incomplete, but `BANANAHUB_HOST_IMAGEGEN=1` or the caller explicitly has a native image tool | Optimize/render prompt, optionally archive it, then hand it to the host image tool instead of calling the provider script |
+| `host-native` | Provider config is missing or incomplete, but `BANANAHUB_HOST_IMAGEGEN=1`, `check-mode --host-imagegen`, or the agent has a Codex/host built-in image tool | Optimize/render prompt, optionally archive it, then hand it to the host image tool instead of calling the provider script |
 | `prompt-only` | No valid provider and no host image tool | Act as a prompt/template advisor: return the final prompt and archive it when requested; do not claim image generation succeeded |
 
 Capability ownership is layered:
@@ -125,6 +128,20 @@ Capability ownership is layered:
 - **Cross-model skill layer**: prompt optimization, translation policy, conservative enhancement, `--direct`, `--raw`, prompt archiving, template discovery/activation, host-native delegation, and prompt-only advisory output.
 - **Template layer**: matching and activation are common, but provider/model compatibility, prompt variants, tested quality, and samples belong to template metadata.
 - **Provider/model layer**: image edit, mask edit, multi-reference, exact size, native quality, transparent background, output format/compression, and fallback are not universal; route them through `references/capability-registry.md`, `references/model-registry.json`, and provider adapters.
+
+### Host-Native Codex Image Tool
+
+Treat Codex built-in image generation as a host-native channel, not as a persisted provider. It is useful when the user is authenticated through Codex OAuth or another host/API login that exposes an image tool and does not want to enter a separate BananaHub API key.
+
+- Offer this channel during `init` when the current agent visibly has an image generation tool.
+- To verify it, run `/bananahub test-host-imagegen` or `/bananahub test-codex-imagegen`: optimize no extra provider config, call the host image generation tool directly, and report whether an image file was produced.
+- Validation prompt:
+  ```text
+  Create a compact BananaHub channel validation image: a clean workflow card connected to a built-in image generation tool node, with a green check indicator. Include only the exact label "Codex Image Tool OK". Crisp modern product illustration, high readability, no logos, no watermark, no extra text.
+  ```
+- After a successful test, treat the current session as host-native. For CLI-only diagnostics, run `python3 {baseDir}/scripts/bananahub.py check-mode --host-imagegen --pretty` or set `BANANAHUB_HOST_IMAGEGEN=1`.
+- Do not promise provider-native controls on this path. Exact pixel size, mask editing, native quality, output format, compression, transparent background, and multi-reference limits depend on the host tool surface.
+- If a generated image is meant for the current project, move or copy the final asset from the host tool's default output location into the workspace before referencing it.
 
 If a feature changes request payload shape, file validation, cost, policy behavior, or output parsing, do not treat it as cross-model even if several providers happen to support similar wording.
 
@@ -144,6 +161,7 @@ Route user input to the appropriate action based on arguments:
 | `generate <English prompt>` | Generate image directly with given English prompt (skip optimization) |
 | `models` | Run `python3 {baseDir}/scripts/bananahub.py models` to query image-capable models from API |
 | `check-mode` | Run `python3 {baseDir}/scripts/bananahub.py check-mode --pretty` to inspect provider-backed / host-native / prompt-only mode and capability layers |
+| `test-host-imagegen` / `test-codex-imagegen` | Skill-layer command: call the host/Codex built-in image generation tool with the validation prompt, then mark the session as host-native if it succeeds |
 | `templates` | Read `references/template-system.md`, then list all templates grouped by profile and type |
 | `templates <name>` | Read `references/template-system.md`, parse frontmatter `type`, then show prompt-template or workflow-template details accordingly |
 | `use <template-id> [custom description]` | Read `references/template-system.md`, parse frontmatter `type`, then either generate from a prompt template or activate a workflow template |
@@ -155,7 +173,7 @@ Route user input to the appropriate action based on arguments:
 Note:
 - `optimize`, `--direct`, and `--raw` are **skill-layer controls** interpreted by you before invoking the script
 - Do **not** pass `--direct` or `--raw` through to `{baseDir}/scripts/bananahub.py`
-- `optimize`, `templates`, `use`, `discover`, and `create-template` are **skill-layer commands**. If they are accidentally passed to `{baseDir}/scripts/bananahub.py`, the script returns a machine-readable `status: "skill_layer_command"` explanation for agents.
+- `optimize`, `templates`, `use`, `discover`, `create-template`, `test-host-imagegen`, and `test-codex-imagegen` are **skill-layer commands**. If they are accidentally passed to `{baseDir}/scripts/bananahub.py`, the script returns a machine-readable `status: "skill_layer_command"` explanation for agents.
 - `discover` uses BananaHub machine-readable files and `npx bananahub add ...`, not provider generation directly.
 - `telemetry` is an **internal helper**, not a user-facing chat command. Use it when a template is selected or successfully produces output.
 
@@ -218,15 +236,16 @@ Read `references/optimization-pipeline.md` for the full pipeline. Overview:
 
 ## Image Generation Flow
 
-1. Build command:
+1. If execution mode is `host-native`, use the final optimized prompt with the host/Codex built-in image tool instead of calling `{baseDir}/scripts/bananahub.py generate`. Save or report the host-generated output path, and archive the prompt when requested.
+2. Otherwise build command:
    ```bash
    python3 {baseDir}/scripts/bananahub.py generate "<prompt>" [--aspect RATIO] [--model MODEL] [--output PATH]
    ```
    When this generation comes from an active template, also pass:
    `--template-id <id> --template-repo <repo> --template-distribution bundled|remote --template-source curated|discovered`
-2. Execute script and parse JSON output
-3. **Automatic model fallback**: on server error (500/502/503/504), tries the selected provider family fallback chain from `references/model-registry.json`. Do not cross provider families unless the user explicitly enables cross-provider fallback. Use `--no-fallback` to disable.
-4. On success:
+3. Execute script and parse JSON output
+4. **Automatic model fallback**: on server error (500/502/503/504), tries the selected provider family fallback chain from `references/model-registry.json`. Do not cross provider families unless the user explicitly enables cross-provider fallback. Use `--no-fallback` to disable.
+5. On success:
    ```
    ✅ 图片已生成
    📁 路径: [file_path]
@@ -234,7 +253,7 @@ Read `references/optimization-pipeline.md` for the full pipeline. Overview:
    📝 使用的 Prompt: [final prompt used]
    ```
    If the script returns `template_telemetry`, treat it as best-effort success reporting only; do not surface failures unless the user asked.
-5. On failure: suggest fix based on error type (content policy → rephrase, auth → check key, network → check proxy)
+6. On failure: suggest fix based on error type (content policy → rephrase, auth → check key, network → check proxy)
 
 ## Image Editing Flow
 

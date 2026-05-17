@@ -18,14 +18,16 @@ When the user runs `init`, make BananaHub usable with the least possible back-an
    ```
 7. If dependencies are missing and the user allows package installation, run `dependency_install_command` from `config doctor --json`; do not add `--break-system-packages` automatically.
 8. Do not run a paid image-generation test unless the user explicitly agrees. Model-list healthchecks are okay; generation smoke tests require consent.
-9. Default to GPT Image 2 through `openai-compatible` unless the user explicitly chooses another image channel or an existing config already resolves cleanly.
-10. Do not ask the user to interpret `resolved_from`, provider aliases, or ignored env vars. Use `effective_config`, `missing_fields`, and `ignored_config_sources` yourself and only surface the next action.
-11. Treat the persisted default profile as the user's durable choice. Environment variables fill missing fields by default; they override profile fields only when `BANANAHUB_ENV_OVERRIDE=1` is set.
+9. If the current host visibly exposes a native image generation tool, offer that first as a no-local-AK channel and run `/bananahub test-host-imagegen` when the user wants verification.
+10. Default to GPT Image 2 through `openai-compatible` unless the user explicitly chooses another image channel, selects the host-native channel, or an existing config already resolves cleanly.
+11. Do not ask the user to interpret `resolved_from`, provider aliases, or ignored env vars. Use `effective_config`, `missing_fields`, and `ignored_config_sources` yourself and only surface the next action.
+12. Treat the persisted default profile as the user's durable choice. Environment variables fill missing fields by default; they override profile fields only when `BANANAHUB_ENV_OVERRIDE=1` is set.
 
 ## Provider Selection
 
 Ask one human question first: “Which image channel do you already have?”
 
+- **Codex / host built-in image tool** — Codex OAuth and some host/API logins expose an image generation tool. No BananaHub API key is stored; BananaHub optimizes the prompt and delegates generation to the host tool. Verify with `/bananahub test-host-imagegen`.
 - **OpenAI-compatible gateway** — Cherry Studio / Bigfish / other OpenAI-style image gateway. Default profile `gpt`, default model `gpt-image-2`.
 - **OpenAI official** — official GPT Image API. Default profile `gpt`, default model `gpt-image-2`.
 - **Google AI Studio** — Gemini / Nano Banana route. Default profile `nano`, default model `gemini-3-pro-image-preview`.
@@ -99,6 +101,15 @@ Agent direct-entry variant:
 ```bash
 python3 {baseDir}/scripts/bananahub.py config quickset --provider chatgpt-compatible --profile chat --default-profile \
   --base-url "<chat endpoint>" --api-key-stdin --model gpt-5.4
+```
+
+Host-native Codex / agent image tool:
+```bash
+# No persistent provider config is required. Ask the agent to run:
+/bananahub test-host-imagegen
+
+# For CLI diagnostics only:
+BANANAHUB_HOST_IMAGEGEN=1 python3 {baseDir}/scripts/bananahub.py check-mode --pretty
 ```
 
 ## Profile Config Contract
@@ -196,3 +207,11 @@ BANANAHUB_PROFILE=gpt python3 {baseDir}/scripts/bananahub.py generate \
 ```
 
 Expected result: `status: "ok"`, `actual_model: "gpt-image-2"`, and a readable PNG. Telemetry `HTTP 403` is non-blocking and should not be mixed with generation failure.
+
+For a host-native Codex image tool smoke test, use the skill-layer command instead of the provider script:
+
+```text
+/bananahub test-host-imagegen
+```
+
+Expected result: Codex or the host image tool produces a small validation PNG with the label `Codex Image Tool OK`. After success, use host-native mode for this session; for CLI checks, pass `--host-imagegen` or set `BANANAHUB_HOST_IMAGEGEN=1`.
