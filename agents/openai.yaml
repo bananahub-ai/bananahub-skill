@@ -1,7 +1,7 @@
 interface:
   display_name: "BananaHub"
-  short_description: "Provider-aware image generation, editing, host tools, and templates"
-  default_prompt: "Use $bananahub to optimize a non-English or mixed-language image request, generate or edit through GPT Image, Gemini, a compatible gateway, or a host-native image tool, and discover matching templates."
+  short_description: "Prompt optimization, image routing, host tools, and templates"
+  default_prompt: "Use $bananahub to optimize an image request before generation, route it through GPT Image, Gemini, a compatible gateway, or a host-native image tool, and discover matching templates."
 
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

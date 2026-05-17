@@ -8,6 +8,8 @@ BananaHub is an agent-native image workflow skill. Describe what you want in Chi
 
 It is not just a prompt helper. BananaHub acts as a workflow layer between agents and image providers: GPT Image 2 by default, plus Gemini / Nano Banana, OpenAI official, compatible gateways, and host-native image tools when configured.
 
+When installed in hosts that support implicit skill loading, BananaHub can also appear for ordinary image requests. In that case it asks whether you want prompt optimization first; if you decline, the agent can continue with its normal image tool.
+
 ## Why BananaHub
 
 - **Works in more environments**: direct provider calls when keys are configured, host-tool delegation when the client already has image generation, prompt-only output when no image runtime is available.
@@ -87,6 +89,8 @@ Configuration is intentionally profile-based: initialize once, persist provider 
 | `/bananahub use <template-id>` | Use a prompt template or start a workflow template |
 | `/bananahub discover <need>` | Search BananaHub for matching templates |
 | `/bananahub init` | Check and initialize the environment |
+
+For ordinary image requests without `/bananahub`, BananaHub is advisory by default: it prompts before optimizing and does not silently replace the host's image generator.
 
 ## Common Flags
 

@@ -1,13 +1,12 @@
 ---
 name: bananahub
 description: >
-  Agent-native multi-provider image workflow for `/bananahub`. Normalizes non-English prompts into English by default,
-  generates or edits images across Gemini/Nano Banana, OpenAI GPT Image, chat-compatible image routes, and Codex/host-native
-  image tools when available, and discovers or uses BananaHub prompt and workflow templates. Trigger only when the user explicitly mentions
-  bananahub / BananaHub or uses the `/bananahub` command. Do NOT activate on generic image-generation
-  requests like "生成图片" or "画一个".
-  Typical triggers: "/bananahub", "用 bananahub 画", "bananahub 生图", "bananahub 优化提示词",
-  "bananahub 找模板", and "/bananahub discover".
+  Agent-native image workflow and optional prompt optimizer for `/bananahub` and generic agent image generation requests.
+  Normalizes non-English prompts into English by default, generates or edits images across Gemini/Nano Banana, OpenAI GPT Image,
+  chat-compatible routes, and Codex/host-native image tools when available, and discovers or uses BananaHub templates.
+  Explicit `/bananahub` requests execute the BananaHub workflow. Generic requests like "生成图片", "画一个", "create an image",
+  or "edit this image" should load BananaHub as an optimization advisor: ask whether to optimize/template-route the prompt
+  before generation, then continue with the user's chosen image channel.
 metadata:
   version: 0.1.0
   author: bananahub-ai
@@ -28,6 +27,8 @@ user_invocable: true
 # BananaHub
 
 Generate or edit images from non-English or mixed-language requests inside one `/bananahub` workflow. GPT Image 2 through an OpenAI-compatible image endpoint is the default provider path; user-configured Gemini/Nano Banana, OpenAI official, Vertex, chat-compatible paths, and Codex/host-native image tools are preserved. BananaHub keeps prompt optimization, conservative enhancement, model fallback, image editing, template use, and BananaHub discovery in a single skill instead of splitting them across separate installs.
+
+When BananaHub is loaded implicitly for a generic agent image request, act as a lightweight optimization layer first. Do not silently take over generation: ask whether the user wants BananaHub to optimize the prompt before the image tool runs, then respect the answer.
 
 ## Quick Start
 
@@ -146,6 +147,26 @@ Treat Codex built-in image generation as a host-native channel, not as a persist
 If a feature changes request payload shape, file validation, cost, policy behavior, or output parsing, do not treat it as cross-model even if several providers happen to support similar wording.
 
 Agent operating principle: do not ask the human to make choices the agent can resolve from diagnosis, config, templates, or file paths. Ask only for secrets, provider/channel selection when unknown, paid generation consent, or genuinely creative direction.
+
+## Implicit Image Request Flow
+
+This flow applies when BananaHub is loaded by a generic agent image request rather than an explicit `/bananahub` command.
+
+1. Detect the user's intent:
+   - image generation: "生成图片", "画一个", "create an image", "make a poster", "generate a logo", etc.
+   - image editing: "改这张图", "replace the background", "edit this image", etc.
+2. If the user explicitly asks to skip optimization, says "直接生成/直接画/raw/no optimization", or the request is already a highly structured final prompt, do not interrupt. Use the current image channel directly.
+3. Otherwise ask one short confirmation before generation:
+   ```text
+   要不要我先用 BananaHub 优化一下 prompt，再用当前可用的生图通道生成？我会保留你的原意，只增强结构、约束和模型适配。
+   ```
+   In English sessions:
+   ```text
+   Do you want BananaHub to optimize the prompt before I generate it? I will preserve your intent and only tighten structure, constraints, and model fit.
+   ```
+4. If the user agrees, run the normal BananaHub optimization pipeline, suggest a matching local template only when there is a clear fit, then generate through the active provider or host-native image tool.
+5. If the user declines, do not use BananaHub optimization for that request. Hand the original request to the current image generation tool.
+6. If the request includes exact text, brand constraints, a reference image, editing boundaries, a workflow/template need, or a deliverable that benefits from prompt archiving, briefly recommend optimization but still wait for confirmation unless the user invoked `/bananahub` explicitly.
 
 ## Command Routing
 
