@@ -11,7 +11,6 @@ Starter workflow for turning README excerpts, directory summaries, or code notes
 ## Supported Models
 
 - Recommended: `gpt-image-2` for first-pass repo diagrams with strict labels and cleaner text.
-- Gemini / Nano Banana: `gemini-3-pro-image-preview`, `gemini-3.1-flash-image-preview`
 - OpenAI GPT Image fallback: `gpt-image-1`
 
 ## Verified Models

@@ -15,8 +15,6 @@ Starter prompt template for clean ecommerce catalog product images with isolated
 ## Supported Models
 
 - `gpt-image-2` — recommended for high-fidelity product generation and strict avoidance of fake props or badges.
-- `gemini-3-pro-image-preview` — good fit for polished materials and catalog lighting.
-- `gemini-3.1-flash-image-preview` — good faster option for simple product shots.
 - `gpt-image-1` — compatible fallback through the `gpt-image` prompt variant.
 
 ## Sample Outputs

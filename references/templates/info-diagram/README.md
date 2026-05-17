@@ -15,8 +15,6 @@ Starter prompt template for turning a short process, comparison, timeline, or fr
 ## Supported Models
 
 - `gpt-image-2` — recommended when exact labels and strict text limits matter most.
-- `gemini-3-pro-image-preview` — good fit for polished visual hierarchy and richer icons.
-- `gemini-3.1-flash-image-preview` — good faster option for simple flow cards.
 - `gpt-image-1` — compatible fallback through the `gpt-image` prompt variant.
 
 ## Sample Outputs
