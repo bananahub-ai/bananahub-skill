@@ -83,6 +83,18 @@ SKILL_LAYER_COMMANDS = {
         "description": "Guide creation of a prompt or workflow template.",
         "reference": "references/template-system.md",
     },
+    "capture-workflow": {
+        "description": "Summarize the current image iteration conversation into a reusable workflow template draft.",
+        "reference": "references/template-system.md#capture-workflow--save-workflow--summarize-workflow",
+    },
+    "save-workflow": {
+        "description": "Summarize the current image iteration conversation into a reusable workflow template draft.",
+        "reference": "references/template-system.md#capture-workflow--save-workflow--summarize-workflow",
+    },
+    "summarize-workflow": {
+        "description": "Summarize the current image iteration conversation into a reusable workflow template draft.",
+        "reference": "references/template-system.md#capture-workflow--save-workflow--summarize-workflow",
+    },
     "test-host-imagegen": {
         "description": "Verify whether the current agent host exposes a native image generation tool.",
         "reference": "SKILL.md#host-native-codex-image-tool",
@@ -117,6 +129,10 @@ def _handle_skill_layer_command(argv):
             f"Read {meta['reference']}.",
             "Resolve templates/prompts locally when possible.",
             (
+                "For capture-workflow/save-workflow/summarize-workflow, inspect the current conversation, "
+                "identify accepted outputs, useful prompts, failed attempts, locked invariants, allowed deltas, "
+                "provider/model choices, and draft a type: workflow template. Ask before writing files."
+            ) if command in {"capture-workflow", "save-workflow", "summarize-workflow"} else (
                 "For test-host-imagegen/test-codex-imagegen, call the host/Codex image generation tool "
                 "with the validation prompt from SKILL.md, save or report the generated file path, then "
                 "use BANANAHUB_HOST_IMAGEGEN=1 or check-mode --host-imagegen to mark host-native mode."

@@ -88,6 +88,7 @@ Configuration is intentionally profile-based: initialize once, persist provider 
 | `/bananahub templates` | List built-in and installed templates |
 | `/bananahub use <template-id>` | Use a prompt template or start a workflow template |
 | `/bananahub discover <need>` | Search BananaHub for matching templates |
+| `/bananahub capture-workflow` | Turn the current image iteration into a reusable workflow draft |
 | `/bananahub init` | Check and initialize the environment |
 
 For ordinary image requests without `/bananahub`, BananaHub is advisory by default: it prompts before optimizing and does not silently replace the host's image generator.
@@ -236,9 +237,12 @@ Templates come in two shapes:
 /bananahub use background-replace-edit --input product.png
 /bananahub discover logo system
 /bananahub create-template
+/bananahub capture-workflow
 ```
 
 Built-ins are a lean starter pack: `product-white-bg`, `info-diagram`, `article-one-page-summary`, `repo-explainer-diagram`, and `background-replace-edit`. They are practical, low-maintenance, sample-free, and support both Gemini/Nano Banana and OpenAI GPT Image through provider-specific prompt variants.
+
+After a multi-turn image session, use `/bananahub capture-workflow` to summarize the accepted result, useful prompts, failed attempts, locked invariants, allowed deltas, and model/channel choices into a `type: workflow` template draft. It asks before writing files and can save to user templates, the current project, or a publishable template folder.
 
 Install richer official templates from `bananahub-ai/templates` through BananaHub discovery when you need style packs, logo systems, character workflows, campaign visuals, or heavier sample galleries. Community templates remain available through the broader catalog. User-installed templates live in `~/.config/bananahub/templates/` and take precedence over built-ins with the same ID.
 

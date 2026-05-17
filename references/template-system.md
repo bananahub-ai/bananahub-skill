@@ -143,6 +143,7 @@ Diagram (diagram)
 Usage: /bananahub templates <name>              Show details
        /bananahub use <name> [custom description]  Activate template
        /bananahub create-template               Create a new template
+       /bananahub capture-workflow              Turn current iteration into a workflow draft
 Find more: /bananahub discover <request>
 ```
 
@@ -291,6 +292,66 @@ For `type: workflow`:
 4. Ask for `id`, `title`, `title_en`, and bilingual `tags`
 5. Assemble `template.md` and `README.md`; README must say which providers/models are verified vs only supported
 6. Validate the result against the type-aware template rules
+
+## `capture-workflow` / `save-workflow` / `summarize-workflow` — Capture Current Iteration
+
+Use this command when the user has already spent one or more turns generating or editing images and wants to reuse the process later. This is a skill-layer command because only the agent has access to the current conversation history and generated-image context.
+
+Do not call the provider runtime to "test" the workflow by default. First produce a reusable `type: workflow` template draft from the conversation. Generate fresh samples only if the user asks or approves the extra model call.
+
+### Capture Inputs
+
+Inspect the current conversation and extract:
+
+1. Original user goal and target asset type
+2. Provider/model/channel used for successful outputs, including host-native tools when applicable
+3. Accepted or best output path(s), if available
+4. Effective prompts or prompt blocks that improved results
+5. Failed or rejected attempts and the concrete reasons to avoid
+6. User-approved baseline details: composition, subject, text, style, colors, layout, and must-keep elements
+7. Allowed deltas from refinement rounds: what changed per turn and what stayed locked
+8. Required inputs and reusable variables for future runs
+9. Deterministic post-processing steps such as crop, resize, export, padding, or filename conventions
+
+If the accepted output is ambiguous, ask one question: "哪一版是最终满意的基准图？" If there is no accepted output, draft the workflow from the latest direction and mark samples as pending.
+
+### Capture Output
+
+Produce a concise workflow template draft with:
+
+1. Frontmatter:
+   - `type: workflow`
+   - stable `id`, `title`, `title_en`, `profile`, bilingual `tags`, `difficulty`
+   - `providers` and `models` based on actual tested channels; mark host-native/Codex as notes in the body rather than pretending it is a provider id
+   - `capabilities` derived from the conversation: generation, edit, reference images, mask edit, deterministic derivatives
+   - `samples` only for files the user agrees to reference or copy
+2. Body sections in this order: `Goal`, `When To Use`, `Inputs`, `Steps`, `Prompt Blocks`, `Success Checks`
+3. A `Baseline Lock` or equivalent step when a result was accepted
+4. A `Refinement Rules` subsection inside `Steps` or `Success Checks` that states `locked_invariants` and `allowed_delta`
+5. A `Known Pitfalls` bullet list when failed attempts produced useful constraints
+
+### Save Policy
+
+Ask before writing files. Offer three destinations:
+
+1. User templates: `~/.config/bananahub/templates/<id>/template.md`
+2. Current project: `<project>/bananahub-workflows/<id>/template.md`
+3. Publishing draft: a standalone template repo or folder with `template.md`, optional `samples/`, `README.md`, and `LICENSE`
+
+When saving under user templates, prefer a conservative id derived from the goal, for example `repo-readme-visual-workflow` or `product-style-refinement-workflow`. If writing to an existing id, ask before overwriting.
+
+If a generated image sample currently lives under a host default directory such as `$CODEX_HOME/generated_images`, ask before copying it into `samples/`. Never leave a published template sample pointing only to a transient host path.
+
+### Draft Checklist
+
+Before presenting or saving the template:
+
+- The workflow can be followed without the original chat transcript.
+- The prompt blocks preserve exact text and visual constraints from the accepted result.
+- Failed attempts are converted into actionable "avoid" constraints.
+- Provider/model support is honest: verified means this conversation actually used it; supported means inferred but untested.
+- The workflow has 4-8 practical steps and clear success checks.
+- The template does not contain API keys, private URLs, or unrelated conversation details.
 
 ## Template Validation Rules
 

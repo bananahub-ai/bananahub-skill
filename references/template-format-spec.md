@@ -241,6 +241,33 @@ When authoring a workflow that includes refinement rounds:
 - Each follow-up step should change one major variable at a time
 - Prompt blocks for refinement should explicitly say what stays unchanged
 - If a later asset is a deterministic derivative, document it as a non-model step instead of phrasing it as another creative generation
+- If the workflow was captured from a conversation, convert rejected attempts into "Known Pitfalls" or "Avoid" rules instead of preserving the full chat log
+- Keep host-native image tool usage in body notes or steps; do not invent a provider id for Codex/host-native tools unless the registry later defines one
+- Samples captured from a host default output directory should be copied into `samples/` before publishing; do not reference transient generated-image paths in published metadata
+
+Captured workflows should be understandable without the original conversation. Include these ideas in the body when relevant:
+
+```markdown
+## Steps
+1. Establish the initial visual direction.
+2. Generate or edit the first candidate.
+3. Select the approved baseline.
+4. Lock invariant details: [composition, text, style, subject, palette].
+5. Apply one allowed delta per refinement round.
+6. Export deterministic derivatives if needed.
+
+## Prompt Blocks
+### Initial generation
+[prompt block]
+
+### Refinement with locked baseline
+[prompt block that states what stays unchanged and what may change]
+
+## Success Checks
+- Accepted baseline is identifiable.
+- Locked invariants survived the refinement.
+- Known failed directions are avoided.
+```
 
 ## README Requirements
 

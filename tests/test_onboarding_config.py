@@ -256,6 +256,21 @@ def test_host_imagegen_skill_layer_stub_is_machine_readable():
     assert "host/Codex image generation tool" in payload["agent_actions"][2]
 
 
+def test_capture_workflow_skill_layer_stub_is_machine_readable():
+    stdout = StringIO()
+    with redirect_stdout(stdout):
+        handled = bananahub._handle_skill_layer_command(["capture-workflow"])
+
+    payload = json.loads(stdout.getvalue())
+
+    assert handled is True
+    assert payload["status"] == "skill_layer_command"
+    assert payload["command"] == "capture-workflow"
+    assert "template-system.md#capture-workflow" in payload["reference"]
+    assert "current conversation" in payload["agent_actions"][2]
+    assert "type: workflow" in payload["agent_actions"][2]
+
+
 def test_check_mode_reports_host_native_channel():
     args = Args()
     args.config = None
@@ -288,5 +303,6 @@ if __name__ == "__main__":
     test_dependency_install_command_uses_current_python_user_site()
     test_skill_layer_runtime_stub_is_machine_readable()
     test_host_imagegen_skill_layer_stub_is_machine_readable()
+    test_capture_workflow_skill_layer_stub_is_machine_readable()
     test_check_mode_reports_host_native_channel()
     print("ok")

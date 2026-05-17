@@ -3,8 +3,10 @@ name: bananahub
 description: >
   Agent-native image workflow and optional prompt optimizer for `/bananahub` and generic agent image generation requests.
   Normalizes non-English prompts into English by default, generates or edits images across Gemini/Nano Banana, OpenAI GPT Image,
-  chat-compatible routes, and Codex/host-native image tools when available, and discovers or uses BananaHub templates.
-  Explicit `/bananahub` requests execute the BananaHub workflow. Generic requests like "生成图片", "画一个", "create an image",
+  chat-compatible routes, and Codex/host-native image tools when available, discovers or uses BananaHub templates,
+  and captures successful multi-turn image iterations as reusable workflow templates.
+  Explicit `/bananahub` requests execute the BananaHub workflow. Requests like "把刚才的调图流程沉淀成模板",
+  "save this image workflow", or "capture workflow" should use the capture-workflow flow. Generic requests like "生成图片", "画一个", "create an image",
   or "edit this image" should load BananaHub as an optimization advisor: ask whether to optimize/template-route the prompt
   before generation, then continue with the user's chosen image channel.
 metadata:
@@ -39,6 +41,7 @@ When BananaHub is loaded implicitly for a generic agent image request, act as a 
 - Generate from a natural-language request: `/bananahub 一只橘猫趴在键盘上打盹`
 - Edit an image: `/bananahub edit 把背景换成海滩 --input photo.png`
 - Discover a reusable template: `/bananahub discover 代码库讲解图`
+- Capture the current image iteration as a workflow template: `/bananahub capture-workflow`
 
 ## Key Paths
 
@@ -190,11 +193,12 @@ Route user input to the appropriate action based on arguments:
 | `discover curated <request>` | Read `references/hub-discovery.md`, then search only the curated BananaHub catalog |
 | `discover trending` | Read `references/hub-discovery.md`, then show current trending BananaHub templates |
 | `create-template [description]` | Read `references/template-system.md`, determine whether the user needs a prompt or workflow template, then guide creation |
+| `capture-workflow` / `save-workflow` / `summarize-workflow` | Read `references/template-system.md`, inspect the current multi-turn image iteration, and draft a reusable `type: workflow` template |
 
 Note:
 - `optimize`, `--direct`, and `--raw` are **skill-layer controls** interpreted by you before invoking the script
 - Do **not** pass `--direct` or `--raw` through to `{baseDir}/scripts/bananahub.py`
-- `optimize`, `templates`, `use`, `discover`, `create-template`, `test-host-imagegen`, and `test-codex-imagegen` are **skill-layer commands**. If they are accidentally passed to `{baseDir}/scripts/bananahub.py`, the script returns a machine-readable `status: "skill_layer_command"` explanation for agents.
+- `optimize`, `templates`, `use`, `discover`, `create-template`, `capture-workflow`, `save-workflow`, `summarize-workflow`, `test-host-imagegen`, and `test-codex-imagegen` are **skill-layer commands**. If they are accidentally passed to `{baseDir}/scripts/bananahub.py`, the script returns a machine-readable `status: "skill_layer_command"` explanation for agents.
 - `discover` uses BananaHub machine-readable files and `npx bananahub add ...`, not provider generation directly.
 - `telemetry` is an **internal helper**, not a user-facing chat command. Use it when a template is selected or successfully produces output.
 
@@ -324,7 +328,7 @@ Read `references/template-system.md` for the full template system. Overview:
 - **Workflow templates**: act as progressive-disclosure context; load the workflow, ask only for missing blockers, and execute step-by-step with `generate` / `edit` primitives when needed
 - **Model transparency**: when a template or heuristic selects `gpt-image-2` or Gemini/Nano Banana automatically, state that recommendation explicitly instead of hiding the model choice
 - **Built-in starter examples**: `info-diagram` for one-page infographics, `article-one-page-summary` for article explainers, `background-replace-edit` for edit workflows
-- **Commands**: `templates` (list installed), `templates <name>` (details), `use <id> [desc]` (activate), `discover <need>` (search hub), `create-template` (create)
+- **Commands**: `templates` (list installed), `templates <name>` (details), `use <id> [desc]` (activate), `discover <need>` (search hub), `create-template` (create), `capture-workflow` (turn current iteration into a workflow draft)
 - **Auto-matching**: Phase 2.1 suggests installed templates first; Phase 2.2 can search BananaHub when local coverage is weak
 - **Adoption telemetry**: when a template is selected, call `python3 {baseDir}/scripts/bananahub.py telemetry track --event selected ...`; when template-driven `generate`/`edit` succeeds, pass template telemetry flags so the script can report `generate_success` / `edit_success`
 - **Install more**: prefer `discover` inside the skill; official rich templates install from `bananahub-ai/templates`, and known targets can still be installed with `npx bananahub add <user/repo[/template]>`
