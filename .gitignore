@@ -13,3 +13,5 @@ __pycache__/
 # Allow sample images in templates (override global image ignore)
 !references/templates/**/samples/*.jpg
 !references/templates/**/samples/*.png
+# Allow generated GitHub/README visual assets
+!docs/assets/github/*.png
