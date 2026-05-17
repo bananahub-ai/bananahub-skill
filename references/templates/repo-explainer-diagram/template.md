@@ -11,7 +11,7 @@ profile: diagram
 tags: [代码库, 项目结构, 架构图, README, repo, codebase, architecture, explainer]
 models:
   - name: gpt-image-2
-    tested: false
+    tested: true
     quality: best
   - name: gemini-3-pro-image-preview
     tested: false
@@ -58,8 +58,14 @@ samples:
     prompt_variant: gemini
     prompt: "Create a clean repository workflow diagram titled \"Nano Banana Template Flow\". Use a top-to-bottom flow with the exact labels \"User Request\", \"Prompt Optimization\", \"Profile Match\", \"Template Suggestion\", and \"Generate or Edit\". Use simple connectors, high contrast, restrained teal and gold colors, and no extra paragraphs."
     aspect: "4:3"
+  - file: samples/sample-gpt-image-2-01.png
+    provider: chatgpt-compatible
+    model: gpt-image-2
+    prompt_variant: gpt-image
+    prompt: "Create a clean repository explainer diagram titled \"BananaHub Request Flow\". Use a left-to-right flow with only these exact labels: \"User Request\", \"Template\", \"Provider\", \"Image Output\". Show simple connectors and a modern product-doc diagram style with warm off-white background, high contrast dark text, restrained teal and banana-gold accents, generous spacing. Do not invent modules, paragraphs, extra labels, fake numbers, fake UI screenshots, watermarks, API keys, or clutter. Keep all visible text exactly spelled and readable."
+    aspect: "4:3"
 created: 2026-03-31
-updated: 2026-05-16
+updated: 2026-05-17
 ---
 
 ## Goal

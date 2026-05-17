@@ -17,7 +17,7 @@ models:
     tested: false
     quality: good
   - name: gpt-image-2
-    tested: false
+    tested: true
     quality: best
 providers:
   - id: google-ai-studio
@@ -58,8 +58,14 @@ samples:
     prompt_variant: gemini
     prompt: "Create a clean studio catalog product image of black over-ear headphones. Show the product centered on a pure white background with a small natural contact shadow. Use soft studio lighting, crisp edges, accurate matte and leather material texture, and realistic scale. No props, people, badges, watermarks, or extra text."
     aspect: "1:1"
+  - file: samples/sample-gpt-image-2-01.png
+    provider: chatgpt-compatible
+    model: gpt-image-2
+    prompt_variant: gpt-image
+    prompt: "Create a commercial white-background product shot of a matte black wireless earbud charging case with subtle logo embossing. Composition: front three-quarter hero angle, centered, product fills most of the frame, no cropped edges. Background: pure white with one small realistic contact shadow. Lighting: soft three-point studio lighting with a diffused key light and gentle rim light. Render accurate material texture, crisp seams, clean edges, and realistic scale. Do not add props, people, marketing badges, paragraphs, fake logos, watermarks, duplicated parts, or extra objects."
+    aspect: "1:1"
 created: 2026-03-24
-updated: 2026-05-16
+updated: 2026-05-17
 ---
 
 ## 描述
