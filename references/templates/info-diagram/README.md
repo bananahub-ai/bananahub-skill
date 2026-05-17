@@ -10,7 +10,7 @@ Starter prompt template for turning a short process, comparison, timeline, or fr
 
 ## Verified Models
 
-- `gemini-3.1-flash-image-preview` — verified with `samples/sample-3.1-flash-01.png` for a five-step coffee process infographic.
+- `gpt-image-2` — verified with `samples/sample-gpt-image-2-01.png` for a strict-label four-step flow infographic.
 
 ## Supported Models
 
@@ -23,7 +23,7 @@ Starter prompt template for turning a short process, comparison, timeline, or fr
 
 | File | Provider | Model | Prompt Variant | Notes |
 |---|---|---|---|---|
-| `samples/sample-3.1-flash-01.png` | `google-ai-studio` | `gemini-3.1-flash-image-preview` | `gemini` | Five-step coffee process infographic with locked step labels. |
+| `samples/sample-gpt-image-2-01.png` | `chatgpt-compatible` | `gpt-image-2` | `gpt-image` | Four-step flow infographic with locked labels `Plan`, `Build`, `Test`, and `Ship`. |
 
 ## License
 

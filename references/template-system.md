@@ -286,7 +286,7 @@ For `type: workflow`:
 ### Phase 4: Sample Generation and Assembly
 
 1. Generate 2-3 representative outputs when practical
-2. Save chosen samples with model-explicit names such as `sample-3-pro-01.png`
+2. Save chosen samples with model-explicit names such as `sample-gpt-image-2-01.png`
 3. Record sample metadata in frontmatter with `provider`, `model`, `prompt_variant`, `prompt`, and `aspect`/`size`
 4. Ask for `id`, `title`, `title_en`, and bilingual `tags`
 5. Assemble `template.md` and `README.md`; README must say which providers/models are verified vs only supported

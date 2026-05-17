@@ -17,7 +17,7 @@ models:
     tested: false
     quality: good
   - name: gpt-image-2
-    tested: false
+    tested: true
     quality: best
 providers:
   - id: google-ai-studio
@@ -52,14 +52,14 @@ aspect: "4:3"
 difficulty: beginner
 category: diagram
 samples:
-  - file: samples/sample-3.1-flash-01.png
-    provider: google-ai-studio
-    model: gemini-3.1-flash-image-preview
-    prompt_variant: gemini
-    prompt: "Create a tall infographic titled \"How Coffee Is Made: Bean to Cup\". Use exactly five stacked steps with these labels: \"Harvest\", \"Roast\", \"Grind\", \"Brew\", \"Serve\". Use warm coffee colors, simple icons, rounded cards, and clear arrows. Keep the layout readable and do not add extra steps."
+  - file: samples/sample-gpt-image-2-01.png
+    provider: chatgpt-compatible
+    model: gpt-image-2
+    prompt_variant: gpt-image
+    prompt: "Clean infographic card. Four rounded boxes left to right with arrows. Only text: \"Plan\", \"Build\", \"Test\", \"Ship\". Off-white background, teal and gold accents, simple icons, large readable labels. No other text, no watermark."
     aspect: "4:3"
 created: 2026-03-24
-updated: 2026-05-16
+updated: 2026-05-17
 ---
 
 ## 描述

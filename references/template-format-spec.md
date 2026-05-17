@@ -12,8 +12,7 @@ A template repo can contain one or multiple templates:
 /
 ├── template.md
 ├── samples/                 # Optional during iteration, recommended for publishing
-│   ├── sample-3-pro-01.png
-│   └── sample-3.1-flash-01.png
+│   └── sample-gpt-image-2-01.png
 ├── README.md
 └── LICENSE
 ```
