@@ -11,16 +11,20 @@ Starter prompt template for clean ecommerce catalog product images with isolated
 ## Verified Models
 
 - `gpt-image-2` — verified with `samples/sample-gpt-image-2-01.png` for a white-background earbud case product shot.
+- `gemini-3.1-flash-image-preview` — verified with `samples/sample-3.1-flash-01.png` for a clean white-background headphone product shot.
 
 ## Supported Models
 
 - `gpt-image-2` — recommended for high-fidelity product generation and strict avoidance of fake props or badges.
+- `gemini-3-pro-image-preview` — good fit for polished materials and catalog lighting.
+- `gemini-3.1-flash-image-preview` — good faster option for simple product shots.
 - `gpt-image-1` — compatible fallback through the `gpt-image` prompt variant.
 
 ## Sample Outputs
 
 | File | Provider | Model | Prompt Variant | Notes |
 |---|---|---|---|---|
+| `samples/sample-3.1-flash-01.png` | `google-ai-studio` | `gemini-3.1-flash-image-preview` | `gemini` | White-background over-ear headphone catalog shot. |
 | `samples/sample-gpt-image-2-01.png` | `chatgpt-compatible` | `gpt-image-2` | `gpt-image` | White-background matte black earbud case catalog shot with simple contact shadow. |
 
 ## Notes

@@ -15,6 +15,8 @@ Starter workflow for turning an article, memo, transcript, or long note into one
 ## Supported Models
 
 - `gpt-image-2` — recommended when exact title, takeaway, and short labels matter most.
+- `gemini-3-pro-image-preview` — good fit for rich layout exploration and polished one-page summaries.
+- `gemini-3.1-flash-image-preview` — good faster option for early drafts.
 - `gpt-image-1` — compatible fallback through the `gpt-image` prompt variant.
 
 ## Sample Outputs

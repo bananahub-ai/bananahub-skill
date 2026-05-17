@@ -15,6 +15,8 @@ Starter prompt template for replacing the background of an existing image while 
 ## Supported Models
 
 - `gpt-image-2` — recommended when provider edit support is available and subject-preservation constraints need strict wording.
+- `gemini-3-pro-image-preview` — good fit for background replacement and natural scene integration.
+- `gemini-3.1-flash-image-preview` — good faster option for simpler background swaps.
 - `gpt-image-1` — compatible fallback through the `gpt-image` prompt variant.
 
 ## Sample Outputs
